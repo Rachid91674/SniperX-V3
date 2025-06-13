@@ -1,0 +1,158 @@
+2025-06-13 18:23:11 [INFO] [MainThread] test_chrome:748 - --- Starting Bubblemaps Extractor (Multi-Threaded) ---
+2025-06-13 18:23:11 [INFO] [MainThread] test_chrome:73 - Chrome binary found at: C:\Program Files\Google\Chrome\Application\chrome.exe
+2025-06-13 18:23:11 [INFO] [MainThread] test_chrome:712 - CSV file size changed from 0 to 292 bytes
+2025-06-13 18:23:11 [INFO] [MainThread] test_chrome:124 - Found new token to process: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:23:11 [INFO] [MainThread] test_chrome:728 - Submitting 1 new tokens: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:23:11 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:23:11 [INFO] [BubbleWorker_0] test_chrome:407 - [Thread-23828] --- Starting processing for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump ---
+2025-06-13 18:23:13 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 1/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:23:16 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
+2025-06-13 18:23:17 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
+2025-06-13 18:23:19 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: '32 minutes ago' (Attempt 1).
+2025-06-13 18:23:19 [INFO] [BubbleWorker_0] test_chrome:457 - [Thread-23828] Data not fresh. Attempting in-page refresh (Attempt 1).
+2025-06-13 18:23:20 [INFO] [BubbleWorker_0] test_chrome:467 - [Thread-23828] Clicked in-page refresh (Attempt 1).
+2025-06-13 18:23:21 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:23:24 [WARNING] [BubbleWorker_0] test_chrome:491 - [Thread-23828] Data still not fresh after in-page refresh completed. Timestamp: 'in a few seconds' (Attempt 1).
+2025-06-13 18:23:24 [INFO] [BubbleWorker_0] test_chrome:499 - [Thread-23828] Data still not fresh. Attempting full browser refresh (Attempt 1).
+2025-06-13 18:23:31 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:23:31 [INFO] [BubbleWorker_0] test_chrome:510 - [Thread-23828] Data fresh after full browser refresh (Attempt 1).
+2025-06-13 18:23:31 [INFO] [BubbleWorker_0] test_chrome:532 - [Thread-23828] 'Show Contract' not checked. Clicking (Attempt 1).
+2025-06-13 18:23:34 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-23828] 'Show Contract' successfully checked (Attempt 1).
+2025-06-13 18:23:37 [ERROR] [BubbleWorker_0] test_chrome:558 - [Thread-23828] Failed to extract initial address list (Attempt 1).
+2025-06-13 18:23:37 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 2/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:23:37 [INFO] [BubbleWorker_0] test_chrome:422 - [Thread-23828] Reloading page for attempt 2.
+2025-06-13 18:23:37 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 2).
+2025-06-13 18:23:38 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 2).
+2025-06-13 18:23:41 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: 'a few seconds ago' (Attempt 2).
+2025-06-13 18:23:41 [INFO] [BubbleWorker_0] test_chrome:450 - [Thread-23828] Data is fresh (Attempt 2).
+2025-06-13 18:23:41 [INFO] [BubbleWorker_0] test_chrome:532 - [Thread-23828] 'Show Contract' not checked. Clicking (Attempt 2).
+2025-06-13 18:23:41 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:23:44 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-23828] 'Show Contract' successfully checked (Attempt 2).
+2025-06-13 18:23:47 [ERROR] [BubbleWorker_0] test_chrome:558 - [Thread-23828] Failed to extract initial address list (Attempt 2).
+2025-06-13 18:23:47 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 3/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:23:47 [INFO] [BubbleWorker_0] test_chrome:422 - [Thread-23828] Reloading page for attempt 3.
+2025-06-13 18:23:48 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 3).
+2025-06-13 18:23:48 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 3).
+2025-06-13 18:23:51 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:23:51 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: 'a few seconds ago' (Attempt 3).
+2025-06-13 18:23:51 [INFO] [BubbleWorker_0] test_chrome:450 - [Thread-23828] Data is fresh (Attempt 3).
+2025-06-13 18:23:51 [INFO] [BubbleWorker_0] test_chrome:532 - [Thread-23828] 'Show Contract' not checked. Clicking (Attempt 3).
+2025-06-13 18:23:54 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-23828] 'Show Contract' successfully checked (Attempt 3).
+2025-06-13 18:23:56 [ERROR] [BubbleWorker_0] test_chrome:558 - [Thread-23828] Failed to extract initial address list (Attempt 3).
+2025-06-13 18:23:59 [INFO] [BubbleWorker_0] test_chrome:633 - [Thread-23828] WebDriver quit for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump.
+2025-06-13 18:24:01 [ERROR] [MainThread] test_chrome:701 - Bubblemaps FAILED for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump.
+2025-06-13 18:24:01 [INFO] [MainThread] test_chrome:124 - Found new token to process: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:24:01 [INFO] [MainThread] test_chrome:728 - Submitting 1 new tokens: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:24:01 [INFO] [BubbleWorker_0] test_chrome:407 - [Thread-23828] --- Starting processing for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump ---
+2025-06-13 18:24:01 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:24:02 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 1/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:24:04 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
+2025-06-13 18:24:06 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
+2025-06-13 18:24:08 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: 'a few seconds ago' (Attempt 1).
+2025-06-13 18:24:08 [INFO] [BubbleWorker_0] test_chrome:450 - [Thread-23828] Data is fresh (Attempt 1).
+2025-06-13 18:24:08 [INFO] [BubbleWorker_0] test_chrome:532 - [Thread-23828] 'Show Contract' not checked. Clicking (Attempt 1).
+2025-06-13 18:24:10 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-23828] 'Show Contract' successfully checked (Attempt 1).
+2025-06-13 18:24:11 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:24:13 [ERROR] [BubbleWorker_0] test_chrome:558 - [Thread-23828] Failed to extract initial address list (Attempt 1).
+2025-06-13 18:24:13 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 2/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:24:13 [INFO] [BubbleWorker_0] test_chrome:422 - [Thread-23828] Reloading page for attempt 2.
+2025-06-13 18:24:14 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 2).
+2025-06-13 18:24:14 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 2).
+2025-06-13 18:24:16 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: 'a minute ago' (Attempt 2).
+2025-06-13 18:24:16 [INFO] [BubbleWorker_0] test_chrome:457 - [Thread-23828] Data not fresh. Attempting in-page refresh (Attempt 2).
+2025-06-13 18:24:21 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:24:26 [INFO] [BubbleWorker_0] test_chrome:467 - [Thread-23828] Clicked in-page refresh (Attempt 2).
+2025-06-13 18:24:31 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:24:31 [WARNING] [BubbleWorker_0] test_chrome:491 - [Thread-23828] Data still not fresh after in-page refresh completed. Timestamp: 'in a few seconds' (Attempt 2).
+2025-06-13 18:24:31 [INFO] [BubbleWorker_0] test_chrome:499 - [Thread-23828] Data still not fresh. Attempting full browser refresh (Attempt 2).
+2025-06-13 18:24:36 [ERROR] [BubbleWorker_0] test_chrome:512 - [Thread-23828] Data NOT fresh after all refresh attempts (Attempt 2). Timestamp: 'in a few seconds'.
+2025-06-13 18:24:36 [ERROR] [BubbleWorker_0] test_chrome:517 - [Thread-23828] CRITICAL: Data not fresh after all checks and refreshes on attempt 2.
+2025-06-13 18:24:36 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 3/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:24:36 [INFO] [BubbleWorker_0] test_chrome:422 - [Thread-23828] Reloading page for attempt 3.
+2025-06-13 18:24:37 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 3).
+2025-06-13 18:24:37 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 3).
+2025-06-13 18:24:39 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: 'a few seconds ago' (Attempt 3).
+2025-06-13 18:24:39 [INFO] [BubbleWorker_0] test_chrome:450 - [Thread-23828] Data is fresh (Attempt 3).
+2025-06-13 18:24:39 [INFO] [BubbleWorker_0] test_chrome:532 - [Thread-23828] 'Show Contract' not checked. Clicking (Attempt 3).
+2025-06-13 18:24:41 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:24:42 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-23828] 'Show Contract' successfully checked (Attempt 3).
+2025-06-13 18:24:45 [ERROR] [BubbleWorker_0] test_chrome:558 - [Thread-23828] Failed to extract initial address list (Attempt 3).
+2025-06-13 18:24:47 [INFO] [BubbleWorker_0] test_chrome:633 - [Thread-23828] WebDriver quit for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump.
+2025-06-13 18:24:51 [ERROR] [MainThread] test_chrome:701 - Bubblemaps FAILED for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump.
+2025-06-13 18:24:51 [INFO] [MainThread] test_chrome:124 - Found new token to process: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:24:51 [INFO] [MainThread] test_chrome:728 - Submitting 1 new tokens: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:24:51 [INFO] [BubbleWorker_0] test_chrome:407 - [Thread-23828] --- Starting processing for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump ---
+2025-06-13 18:24:51 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:24:52 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 1/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:24:54 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
+2025-06-13 18:24:55 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
+2025-06-13 18:24:57 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: 'a few seconds ago' (Attempt 1).
+2025-06-13 18:24:57 [INFO] [BubbleWorker_0] test_chrome:450 - [Thread-23828] Data is fresh (Attempt 1).
+2025-06-13 18:24:57 [INFO] [BubbleWorker_0] test_chrome:532 - [Thread-23828] 'Show Contract' not checked. Clicking (Attempt 1).
+2025-06-13 18:25:00 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-23828] 'Show Contract' successfully checked (Attempt 1).
+2025-06-13 18:25:01 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:25:03 [ERROR] [BubbleWorker_0] test_chrome:558 - [Thread-23828] Failed to extract initial address list (Attempt 1).
+2025-06-13 18:25:03 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 2/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:25:03 [INFO] [BubbleWorker_0] test_chrome:422 - [Thread-23828] Reloading page for attempt 2.
+2025-06-13 18:25:03 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 2).
+2025-06-13 18:25:04 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 2).
+2025-06-13 18:25:06 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: 'a few seconds ago' (Attempt 2).
+2025-06-13 18:25:06 [INFO] [BubbleWorker_0] test_chrome:450 - [Thread-23828] Data is fresh (Attempt 2).
+2025-06-13 18:25:06 [INFO] [BubbleWorker_0] test_chrome:532 - [Thread-23828] 'Show Contract' not checked. Clicking (Attempt 2).
+2025-06-13 18:25:10 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-23828] 'Show Contract' successfully checked (Attempt 2).
+2025-06-13 18:25:11 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:25:12 [ERROR] [BubbleWorker_0] test_chrome:558 - [Thread-23828] Failed to extract initial address list (Attempt 2).
+2025-06-13 18:25:12 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 3/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:25:12 [INFO] [BubbleWorker_0] test_chrome:422 - [Thread-23828] Reloading page for attempt 3.
+2025-06-13 18:25:13 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 3).
+2025-06-13 18:25:14 [INFO] [BubbleWorker_0] test_chrome:435 - [Thread-23828] Initial 'Address List' is visible for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 3).
+2025-06-13 18:25:16 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-23828] Timestamp: 'a few seconds ago' (Attempt 3).
+2025-06-13 18:25:16 [INFO] [BubbleWorker_0] test_chrome:450 - [Thread-23828] Data is fresh (Attempt 3).
+2025-06-13 18:25:16 [INFO] [BubbleWorker_0] test_chrome:532 - [Thread-23828] 'Show Contract' not checked. Clicking (Attempt 3).
+2025-06-13 18:25:19 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-23828] 'Show Contract' successfully checked (Attempt 3).
+2025-06-13 18:25:21 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:25:22 [ERROR] [BubbleWorker_0] test_chrome:558 - [Thread-23828] Failed to extract initial address list (Attempt 3).
+2025-06-13 18:25:24 [INFO] [BubbleWorker_0] test_chrome:633 - [Thread-23828] WebDriver quit for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump.
+2025-06-13 18:25:31 [ERROR] [MainThread] test_chrome:701 - Bubblemaps FAILED for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump.
+2025-06-13 18:25:31 [INFO] [MainThread] test_chrome:124 - Found new token to process: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:25:31 [INFO] [MainThread] test_chrome:728 - Submitting 1 new tokens: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:25:31 [INFO] [BubbleWorker_0] test_chrome:407 - [Thread-23828] --- Starting processing for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump ---
+2025-06-13 18:25:31 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:25:32 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 1/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:25:36 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
+2025-06-13 18:25:41 [INFO] [MainThread] test_chrome:712 - CSV file size changed from 292 to 512 bytes
+2025-06-13 18:25:41 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:25:51 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:26:01 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:26:11 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:26:21 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:26:21 [ERROR] [BubbleWorker_0] test_chrome:438 - [Thread-23828] Critical: 'Address List' not visible on attempt 1.
+2025-06-13 18:26:21 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 2/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:26:21 [INFO] [BubbleWorker_0] test_chrome:422 - [Thread-23828] Reloading page for attempt 2.
+2025-06-13 18:26:23 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 2).
+2025-06-13 18:26:31 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:26:41 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:26:51 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:27:01 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:27:08 [ERROR] [BubbleWorker_0] test_chrome:438 - [Thread-23828] Critical: 'Address List' not visible on attempt 2.
+2025-06-13 18:27:08 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 3/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:27:08 [INFO] [BubbleWorker_0] test_chrome:422 - [Thread-23828] Reloading page for attempt 3.
+2025-06-13 18:27:09 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 3).
+2025-06-13 18:27:11 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:27:21 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:27:31 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:27:41 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:27:51 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:27:54 [ERROR] [BubbleWorker_0] test_chrome:438 - [Thread-23828] Critical: 'Address List' not visible on attempt 3.
+2025-06-13 18:27:56 [INFO] [BubbleWorker_0] test_chrome:633 - [Thread-23828] WebDriver quit for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump.
+2025-06-13 18:28:01 [ERROR] [MainThread] test_chrome:701 - Bubblemaps FAILED for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump.
+2025-06-13 18:28:01 [INFO] [MainThread] test_chrome:712 - CSV file size changed from 512 to 715 bytes
+2025-06-13 18:28:01 [INFO] [MainThread] test_chrome:124 - Found new token to process: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:28:01 [INFO] [MainThread] test_chrome:124 - Found new token to process: F2YoMJf4jt4zRat93wQFaBEQ2Ao48CEgnjosDsg3pump
+2025-06-13 18:28:01 [INFO] [MainThread] test_chrome:124 - Found new token to process: HVaijGB8m1EdPDYtYKV7DP67M78ugeUcJ5Nz6VGHpump
+2025-06-13 18:28:01 [INFO] [MainThread] test_chrome:728 - Submitting 1 new tokens: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:28:01 [INFO] [BubbleWorker_0] test_chrome:407 - [Thread-23828] --- Starting processing for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump ---
+2025-06-13 18:28:01 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+2025-06-13 18:28:02 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 1/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
+2025-06-13 18:28:06 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
+2025-06-13 18:28:11 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...

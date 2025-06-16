@@ -12,6 +12,7 @@ import subprocess
 from pathlib import Path
 import concurrent.futures
 import threading
+import random
 
 # Selenium imports
 from selenium import webdriver
@@ -35,7 +36,6 @@ INDIVIDUAL_ADDRESS_MUIBOX_CLASS = 'css-141d73e' # Class indicating an individual
 RANK1_AS_CLUSTER_KEY = "Rank1_Treated_As_Cluster" # Special key for Rank #1 if it's individual but treated as cluster
 
 CHECK_INTERVAL = 15
-<<<<<<< Updated upstream
 CHROME_DRIVER_PATH = None
 # Path to Chrome binary used if no other path is provided
 DEFAULT_CHROME_BINARY_PATH = (
@@ -44,11 +44,6 @@ DEFAULT_CHROME_BINARY_PATH = (
 )
 MAX_WORKERS = 1
 MAX_BUBBLEMAPS_RETRIES = 3
-=======
-CHROME_DRIVER_PATH = None 
-DEFAULT_CHROME_BINARY_PATH = r'C:\Users\Rachid Aitali\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Chromium\chrome.exe'
-MAX_WORKERS = 3
->>>>>>> Stashed changes
 
 PROCESSED_TOKENS_LOCK = threading.Lock()
 CLUSTER_SUMMARY_LOCK = threading.Lock()
@@ -219,7 +214,6 @@ def extract_initial_address_list_data(driver) -> list:
 
 # --- MODIFIED FUNCTION ---
 def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> tuple[list, dict]:
-<<<<<<< Updated upstream
     thread_id_str = f"Thread-{threading.get_ident()}"
     logging.debug(f"[{thread_id_str}] Starting cluster click processing for {len(initial_data_list)} items.")
 
@@ -243,53 +237,22 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
             logging.warning(f"[{thread_id_str}] Skipping item at index {item_index} due to missing keys or incorrect type: {item_data}")
             continue
 
-=======
-    logging.debug(f"[{threading.get_ident()}] Starting cluster click for {len(initial_data_list)} items.")
-    try:
-        scroller = WebDriverWait(driver, 7).until(EC.presence_of_element_located((By.XPATH, "//div[@data-testid='virtuoso-scroller']")))
-    except TimeoutException:
-        logging.error(f"[{threading.get_ident()}] Scroller not found."); return initial_data_list, {}
-    
-    processed_cluster_data = {} # Stores {cluster_key: supply_percentage_str}
-    
-    for item_data in initial_data_list:
->>>>>>> Stashed changes
         rank_to_find_str = item_data['Rank']
         address_to_find = item_data['Address']
         current_muibox_class_string = item_data.get('MuiBox_Class_String', "MuiBox-Not-Found")
         is_rank_one = (rank_to_find_str == "1")
-<<<<<<< Updated upstream
 
-=======
-        
-        # Determine if this item represents an individual wallet visually
->>>>>>> Stashed changes
         is_individual_wallet_visual = INDIVIDUAL_ADDRESS_MUIBOX_CLASS in current_muibox_class_string.split()
 
-        # --- NEW LOGIC FOR RANK #1 ---
         if is_rank_one and is_individual_wallet_visual:
-            logging.info(f"[{threading.get_ident()}] Rank #1 ({address_to_find}) is visually individual. Treating its own holdings as a cluster.")
-            # Use its own individual percentage as its "cluster" supply.
-            # No click needed as we are not looking for a shared cluster supply text.
+            logging.info(f"[{thread_id_str}] Rank #1 ({address_to_find}) is visually individual. Treating its own holdings as its cluster data.")
             individual_perc_str = item_data.get('Individual_Percentage', '0')
-<<<<<<< Updated upstream
             item_data['Cluster_Supply_Percentage'] = individual_perc_str
             processed_cluster_data[RANK1_AS_CLUSTER_KEY] = individual_perc_str
             continue
-=======
-            item_data['Cluster_Supply_Percentage'] = individual_perc_str 
-            processed_cluster_data[RANK1_AS_CLUSTER_KEY] = individual_perc_str # Store with special key
-            continue # Move to next item in initial_data_list
-        # --- END NEW LOGIC FOR RANK #1 ---
->>>>>>> Stashed changes
 
-        # Original logic for other ranks or Rank #1 if it's part of a colored cluster
         if is_individual_wallet_visual: # For ranks > 1 that are individual
-<<<<<<< Updated upstream
             item_data['Cluster_Supply_Percentage'] = '0'
-=======
-            item_data['Cluster_Supply_Percentage'] = '0' # Individual addresses (not Rank #1 special case) have 0 shared cluster supply
->>>>>>> Stashed changes
             continue
 
         # For items part of a visual cluster (colored MuiBox)
@@ -298,7 +261,6 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
             item_data['Cluster_Supply_Percentage'] = processed_cluster_data[normalized_muibox_key]
             continue
 
-<<<<<<< Updated upstream
         logging.info(f"[{thread_id_str}] Rank #{rank_to_find_str} ({address_to_find}) is part of a NEW visual cluster ('{normalized_muibox_key}'). Finding & Clicking.")
         target_button_element = None
         found_item_for_processing = False
@@ -310,19 +272,11 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
             list_item_buttons_xpath = "//div[@data-testid='virtuoso-item-list']//div[contains(@class, 'MuiListItemButton-root')]"
             visible_buttons = driver.find_elements(By.XPATH, list_item_buttons_xpath)
 
-=======
-        logging.info(f"[{threading.get_ident()}] Rank #{rank_to_find_str} NEW visual cluster ('{normalized_muibox_key}'). Finding & Clicking.")
-        target_button_element = None; found_item_for_processing = False
-        
-        for _ in range(7): # Scroll attempts
-            list_item_buttons_xpath = "//div[@data-testid='virtuoso-item-list']//div[contains(@class, 'MuiListItemButton-root')]"
-            visible_buttons = driver.find_elements(By.XPATH, list_item_buttons_xpath)
->>>>>>> Stashed changes
             for button_element_candidate in visible_buttons:
                 try:
+                    # Extract rank and address from the candidate button
                     rank_text_candidate = button_element_candidate.find_element(By.XPATH, ".//p[contains(@class,'css-1dcxne9')]").text.strip().replace("#","")
                     addr_text_candidate = button_element_candidate.find_element(By.XPATH, ".//p[contains(@class,'css-41h84y')]").text.strip()
-<<<<<<< Updated upstream
 
                     if rank_text_candidate == rank_to_find_str and addr_text_candidate == address_to_find:
                         target_button_element = button_element_candidate
@@ -369,33 +323,35 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
                     extracted_supply_value = f'N/A:ErrorOnSupply ({type(e_supply_extract).__name__})'
                     logging.warning(f"[{thread_id_str}] Error extracting cluster supply for '{normalized_muibox_key}' (Rank {rank_to_find_str}): {e_supply_extract}")
 
-=======
-                    if rank_text_candidate == rank_to_find_str and addr_text_candidate == address_to_find:
-                        target_button_element = button_element_candidate; found_item_for_processing = True; break
-                except: continue
-            if found_item_for_processing: break
-            driver.execute_script("arguments[0].scrollTop += arguments[0].clientHeight * 0.75;", scroller); time.sleep(1.5)
-
-        if target_button_element:
-            try:
-                driver.execute_script("arguments[0].scrollIntoView({block:'center', behavior: 'smooth'});", target_button_element); time.sleep(0.7)
-                WebDriverWait(driver,10).until(EC.element_to_be_clickable(target_button_element)).click()
-                extracted_supply_value = 'N/A'
-                try:
-                    supply_el = WebDriverWait(driver,15).until(EC.visibility_of_element_located((By.XPATH,"//p[contains(@class,'css-1uamorv') and starts-with(normalize-space(),'Cluster Supply:')]")))
-                    match = re.search(r"Cluster Supply:\s*([\d\.]+)\s*%", supply_el.text.strip())
-                    if match: extracted_supply_value = match.group(1); logging.info(f"[{threading.get_ident()}] Extracted Supply for '{normalized_muibox_key}': {extracted_supply_value}%")
-                    else: extracted_supply_value = 'Error:Format'; logging.warning(f"[{threading.get_ident()}] Could not parse supply from: '{supply_el.text.strip()}'")
-                except: extracted_supply_value = 'N/A:Timeout/ErrorOnSupply'; logging.warning(f"[{threading.get_ident()}] Timeout/Error extracting supply for '{normalized_muibox_key}'")
->>>>>>> Stashed changes
                 item_data['Cluster_Supply_Percentage'] = extracted_supply_value
                 processed_cluster_data[normalized_muibox_key] = extracted_supply_value
-                time.sleep(1.5)
-            except Exception as e: item_data['Cluster_Supply_Percentage'] = 'N/A:ProcErr'; logging.error(f"[{threading.get_ident()}] Err processing click for rank {rank_to_find_str}: {e}")
-        else: item_data['Cluster_Supply_Percentage'] = 'N/A:NotFound'; logging.warning(f"[{threading.get_ident()}] Could not find element for rank {rank_to_find_str} ('{normalized_muibox_key}')")
-        driver.execute_script("arguments[0].scrollTop = 0;", scroller); time.sleep(0.5)
-        
-    return initial_data_list, processed_cluster_data
+
+                # After processing a cluster, the page state needs to be suitable for the next iteration.
+                # Bubblemaps might automatically close the cluster detail view, or it might overlay.
+                # If it overlays and needs explicit closing, a click on a 'close' button for the cluster detail
+                # would be needed here. For now, we assume the main list is still accessible for the next item.
+                # A short pause can help if the UI is transitioning.
+                time.sleep(1) # Small pause for UI to settle after cluster interaction
+
+            except StaleElementReferenceException:
+                logging.warning(f"[{thread_id_str}] StaleElementReferenceException when trying to click or process cluster for Rank #{rank_to_find_str}. Item might have changed.")
+                item_data['Cluster_Supply_Percentage'] = 'Error:StaleElementOnClick'
+                processed_cluster_data[normalized_muibox_key] = 'Error:StaleElementOnClick'
+            except TimeoutException:
+                logging.warning(f"[{thread_id_str}] TimeoutException when trying to click cluster for Rank #{rank_to_find_str}. Element not clickable or disappeared.")
+                item_data['Cluster_Supply_Percentage'] = 'Error:TimeoutOnClick'
+                processed_cluster_data[normalized_muibox_key] = 'Error:TimeoutOnClick'
+            except Exception as e_click_general:
+                logging.error(f"[{thread_id_str}] General error clicking/processing cluster for Rank #{rank_to_find_str} ({address_to_find}): {e_click_general}", exc_info=True)
+                item_data['Cluster_Supply_Percentage'] = f'Error:ClickFailed ({type(e_click_general).__name__})'
+                processed_cluster_data[normalized_muibox_key] = f'Error:ClickFailed ({type(e_click_general).__name__})'
+        else:
+            logging.warning(f"[{thread_id_str}] Could not find item on page for Rank #{rank_to_find_str} ({address_to_find}) to click for cluster data after scroll attempts.")
+            item_data['Cluster_Supply_Percentage'] = 'Error:ItemNotFoundOnPage'
+            # Not adding to processed_cluster_data as we couldn't get its MuiBox key reliably if item not found
+
+    return augmented_initial_data, processed_cluster_data
+
 # --- END MODIFIED FUNCTION ---
 
 def save_address_data_txt(token_address, augmented_address_data, directory):
@@ -479,11 +435,13 @@ def process_single_token_threaded(token_address_with_config: tuple):
     thread_id_str = f"Thread-{threading.get_ident()}"
     thread_driver = None
     logging.info(f"[{thread_id_str}] --- Starting processing for token: {token_address} ---")
-    try:
+
+    try: # Outer try for driver initialization and final cleanup
         thread_driver = initialize_driver(chrome_binary_path_config, chrome_driver_path_override_config)
-        if not thread_driver: return token_address, False
+        if not thread_driver:
+            return token_address, False
+
         bubblemaps_url = f"https://v2.bubblemaps.io/map?address={token_address}&chain=solana&limit=100"
-<<<<<<< Updated upstream
 
         for attempt in range(MAX_BUBBLEMAPS_RETRIES):
             logging.info(f"[{thread_id_str}] Attempt {attempt + 1}/{MAX_BUBBLEMAPS_RETRIES} for token: {token_address}")
@@ -703,64 +661,14 @@ def process_single_token_threaded(token_address_with_config: tuple):
     except Exception as e:
         logging.error(f"[{thread_id_str}] General error in process_single_token_threaded for {token_address}: {e}", exc_info=True)
         return token_address, False
-=======
-        thread_driver.get(bubblemaps_url)
-        WebDriverWait(thread_driver, 75).until(lambda d: d.execute_script('return document.readyState') == 'complete')
-        logging.info(f"[{thread_id_str}] Page readyState complete for {token_address}.")
-        time.sleep(5)
-        data_is_fresh = False
-        try:
-            timestamp_el = WebDriverWait(thread_driver, 15).until(EC.presence_of_element_located((By.XPATH, "//p[contains(@class, 'MuiTypography-root') and contains(@class, 'css-fm451k')]")))
-            ts_text = timestamp_el.text.strip().lower()
-            logging.info(f"[{thread_id_str}] Timestamp: '{ts_text}' for {token_address}")
-            if "a few seconds ago" in ts_text or "live" in ts_text:
-                data_is_fresh = True; logging.info(f"[{thread_id_str}] Data fresh for {token_address}.")
-        except: logging.warning(f"[{thread_id_str}] Timestamp element not found or error for {token_address}. Assuming refresh needed.")
-        if not data_is_fresh:
-            logging.info(f"[{thread_id_str}] Attempting data refresh for {token_address}.")
-            refreshed = False
-            try:
-                refresh_icon = WebDriverWait(thread_driver,15).until(EC.element_to_be_clickable((By.XPATH,"//*[@data-testid='RefreshIcon']")))
-                thread_driver.execute_script("arguments[0].scrollIntoView(true);", refresh_icon); time.sleep(0.5)
-                refresh_icon.click(); logging.info(f"[{thread_id_str}] Clicked in-page refresh.")
-                WebDriverWait(thread_driver,60).until(EC.visibility_of_element_located((By.XPATH,"//p[text()='Address List']"))); time.sleep(5)
-                refreshed = True
-            except Exception as e_refresh:
-                logging.warning(f"[{thread_id_str}] In-page refresh failed: {e_refresh}. Trying full refresh.")
-            if not refreshed:
-                try:
-                    thread_driver.refresh()
-                    WebDriverWait(thread_driver, 75).until(lambda d: d.execute_script('return document.readyState') == 'complete')
-                    WebDriverWait(thread_driver, 60).until(EC.visibility_of_element_located((By.XPATH, "//p[text()='Address List']")))
-                    time.sleep(5)
-                    logging.info(f"[{thread_id_str}] Full browser refresh completed.")
-                except Exception as e_full:
-                    logging.error(f"[{thread_id_str}] Full refresh error: {e_full}.")
-        logging.info(f"[{thread_id_str}] Attempting visibility control for {token_address}.")
-        try:
-            cb_id = "contractVisibilityCheckbox"
-            cb_wrapper = WebDriverWait(thread_driver,10).until(EC.presence_of_element_located((By.XPATH, f"//input[@id='{cb_id}']/ancestor::span[contains(@class,'MuiButtonBase-root')][1]")))
-            if "Mui-disabled" not in (cb_wrapper.get_attribute("class") or ""):
-                thread_driver.execute_script("arguments[0].scrollIntoView({block:'center'});", cb_wrapper); time.sleep(0.3)
-                WebDriverWait(thread_driver,5).until(EC.element_to_be_clickable(cb_wrapper)).click()
-                logging.info(f"[{thread_id_str}] Clicked visibility control."); time.sleep(2.5)
-            else: logging.info(f"[{thread_id_str}] Visibility control disabled.")
-        except: logging.warning(f"[{thread_id_str}] Visibility control not found/interactable.")
-        
-        initial_data = extract_initial_address_list_data(thread_driver)
-        aug_data, clusters_info = click_clusters_and_extract_supply_data(thread_driver, initial_data) # This now uses the modified logic
-        if aug_data: save_address_data_txt(token_address, aug_data, EXTRACTED_DATA_DIR)
-        with CLUSTER_SUMMARY_LOCK: save_cluster_summary_data(token_address, clusters_info) # This now uses the modified logic
-        logging.info(f"[{thread_id_str}] --- Finished processing token: {token_address} ---")
-        return token_address, True 
-    except Exception as e: logging.error(f"[{thread_id_str}] General error for {token_address}: {e}", exc_info=True)
->>>>>>> Stashed changes
     finally:
         if thread_driver:
-            try: thread_driver.quit()
-            except: pass
-    return token_address, False
-
+            try:
+                thread_driver.quit()
+                logging.info(f"[{thread_id_str}] WebDriver quit for {token_address}.")
+            except Exception as e_quit:
+                logging.error(f"[{thread_id_str}] Error quitting WebDriver for {token_address}: {e_quit}")
+    return token_address, False # Should be unreachable if try block returns, but as a safeguard
 def run_risk_detector_once():
     logging.info("Attempting to run risk_detector.py...")
     script_dir = os.path.dirname(os.path.abspath(__file__))

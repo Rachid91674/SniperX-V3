@@ -148,13 +148,35 @@ def initialize_driver(chrome_binary_path: str, driver_path: str | None = None) -
     except WebDriverException as e: logging.error(f"WebDriverException on init: {e}"); return None
     except Exception as e: logging.error(f"Unexpected error on WebDriver init: {e}"); return None
 
+def ensure_address_list_panel_open(driver):
+    """Ensure the Address List panel is expanded."""
+    try:
+        header_btn = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'Address List')]/ancestor::button"))
+        )
+        collapse_div = header_btn.find_element(By.XPATH, "following-sibling::div")
+        collapsed = (
+            'MuiCollapse-hidden' in collapse_div.get_attribute('class') or
+            collapse_div.size.get('height', 0) == 0
+        )
+        if collapsed:
+            header_btn.click()
+            time.sleep(1)
+    except Exception as e:
+        logging.debug(f"[{threading.get_ident()}] ensure_address_list_panel_open error: {e}")
+
 def extract_initial_address_list_data(driver) -> list:
     TARGET_MAX_RANK_EXTRACTION = 10
     logging.debug(f"[{threading.get_ident()}] Attempting direct extraction (ranks 1-{TARGET_MAX_RANK_EXTRACTION}).")
     address_data_map = {}
     try:
-        WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.XPATH, "//p[text()='Address List']")))
-        scroller = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[@data-testid='virtuoso-scroller']")))
+        WebDriverWait(driver, 20).until(
+            EC.visibility_of_element_located((By.XPATH, "//p[contains(text(),'Address List')]"))
+        )
+        ensure_address_list_panel_open(driver)
+        scroller = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//div[@data-testid='virtuoso-scroller']"))
+        )
         driver.execute_script("arguments[0].scrollTop = 0", scroller)
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[@data-testid='virtuoso-item-list']/div[@data-item-index='0']")))
         time.sleep(2)
@@ -434,8 +456,9 @@ def process_single_token_threaded(token_address_with_config: tuple):
                 # Wait for critical content 'Address List' before proceeding
                 try:
                     WebDriverWait(thread_driver, 45).until(
-                        EC.visibility_of_element_located((By.XPATH, "//p[text()='Address List']"))
+                        EC.visibility_of_element_located((By.XPATH, "//p[contains(text(),'Address List')]"))
                     )
+                    ensure_address_list_panel_open(thread_driver)
                     logging.info(f"[{thread_id_str}] Initial 'Address List' is visible for {token_address} (Attempt {attempt + 1}).")
                     time.sleep(random.uniform(1.5, 2.5))
                 except TimeoutException:
@@ -481,8 +504,9 @@ def process_single_token_threaded(token_address_with_config: tuple):
                         try:
                             # If icon was clicked, now wait for list and re-check freshness
                             WebDriverWait(thread_driver, 60).until(
-                                EC.visibility_of_element_located((By.XPATH, "//p[text()='Address List']"))
+                                EC.visibility_of_element_located((By.XPATH, "//p[contains(text(),'Address List')]"))
                             )
+                            ensure_address_list_panel_open(thread_driver)
                             time.sleep(random.uniform(4, 6)) # Wait for list to reload
                             timestamp_el = WebDriverWait(thread_driver, 15).until(
                                 EC.presence_of_element_located((By.XPATH, "//p[contains(@class, 'MuiTypography-root') and contains(@class, 'css-fm451k')]"))
@@ -504,7 +528,10 @@ def process_single_token_threaded(token_address_with_config: tuple):
                     try:
                         thread_driver.refresh()
                         WebDriverWait(thread_driver, 75).until(lambda d: d.execute_script('return document.readyState') == 'complete')
-                        WebDriverWait(thread_driver, 60).until(EC.visibility_of_element_located((By.XPATH, "//p[text()='Address List']")))
+                        WebDriverWait(thread_driver, 60).until(
+                            EC.visibility_of_element_located((By.XPATH, "//p[contains(text(),'Address List')]"))
+                        )
+                        ensure_address_list_panel_open(thread_driver)
                         time.sleep(random.uniform(4,6))
                         # Re-check freshness again
                         timestamp_el = WebDriverWait(thread_driver, 15).until(EC.presence_of_element_located((By.XPATH, "//p[contains(@class, 'MuiTypography-root') and contains(@class, 'css-fm451k')]")))

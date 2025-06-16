@@ -158,3 +158,82 @@
 2025-06-13 18:28:02 [INFO] [BubbleWorker_0] test_chrome:417 - [Thread-23828] Attempt 1/3 for token: BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump
 2025-06-13 18:28:06 [INFO] [BubbleWorker_0] test_chrome:428 - [Thread-23828] Page readyState complete for BxYkyTkUmXEeFx6yqAJkrSUVuqU9sACXMAeXca5Mpump (Attempt 1).
 2025-06-13 18:28:11 [INFO] [MainThread] test_chrome:738 - Pool full (1). Waiting...
+
+--- Watchdog launching test_chrome.py at Sun Jun 15 16:38:58 2025 due to sniperx_results_1m.csv change ---
+2025-06-15 16:38:59 [INFO] [MainThread] test_chrome:516 - --- Starting Bubblemaps Extractor (Multi-Threaded) ---
+2025-06-15 16:38:59 [INFO] [MainThread] test_chrome:71 - Chrome binary found at: C:\Program Files\Google\Chrome\Application\chrome.exe
+2025-06-15 16:38:59 [INFO] [MainThread] test_chrome:480 - CSV file size changed from 0 to 291 bytes
+2025-06-15 16:38:59 [INFO] [MainThread] test_chrome:122 - Found new token to process: Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump
+2025-06-15 16:38:59 [INFO] [MainThread] test_chrome:496 - Submitting 1 new tokens: Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump
+2025-06-15 16:38:59 [INFO] [BubbleWorker_0] test_chrome:345 - [Thread-28912] --- Starting processing for token: Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump ---
+2025-06-15 16:39:03 [INFO] [BubbleWorker_0] test_chrome:352 - [Thread-28912] Page readyState complete for Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump.
+2025-06-15 16:39:08 [INFO] [BubbleWorker_0] test_chrome:358 - [Thread-28912] Timestamp: 'a few seconds ago' for Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump
+2025-06-15 16:39:08 [INFO] [BubbleWorker_0] test_chrome:360 - [Thread-28912] Data fresh for Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump.
+2025-06-15 16:39:08 [INFO] [BubbleWorker_0] test_chrome:382 - [Thread-28912] Attempting visibility control for Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump.
+2025-06-15 16:39:08 [INFO] [BubbleWorker_0] test_chrome:389 - [Thread-28912] Clicked visibility control.
+2025-06-15 16:39:14 [INFO] [BubbleWorker_0] test_chrome:334 - Saved cluster summary for Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump: Clusters=0, GlobalSupply=0.00%, Status=CLEAN
+2025-06-15 16:39:14 [INFO] [BubbleWorker_0] test_chrome:397 - [Thread-28912] --- Finished processing token: Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump ---
+2025-06-15 16:39:19 [INFO] [MainThread] test_chrome:466 - Bubblemaps SUCCESS for Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump.
+2025-06-15 16:39:19 [INFO] [MainThread] test_chrome:473 - 1 tokens updated. Triggering risk_detector.py.
+2025-06-15 16:39:19 [INFO] [MainThread] test_chrome:407 - Attempting to run risk_detector.py...
+2025-06-15 16:39:20 [INFO] [MainThread] test_chrome:428 - risk_detector.py completed successfully.
+2025-06-15 16:39:20 [WARNING] [MainThread] test_chrome:430 - Risk Detector STDERR:
+2025-06-15 16:39:19 [INFO] [risk_detector.py:166] - --- Starting Full Token Risk Analysis ---
+2025-06-15 16:39:19 [INFO] [risk_detector.py:180] - Loaded 1 tokens from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv
+2025-06-15 16:39:19 [INFO] [risk_detector.py:160] - Successfully loaded 42 entries from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\cluster_summaries.csv
+2025-06-15 16:39:19 [INFO] [risk_detector.py:213] - Processing token: Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump (Unknown)
+2025-06-15 16:39:20 [INFO] [risk_detector.py:29] - [DEXSCREENER] Querying for pairs: https://api.dexscreener.com/latest/dex/search?q=Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump
+2025-06-15 16:39:20 [INFO] [risk_detector.py:113] - [DEXSCREENER] Primary pair for Bngnm82vBt6HKkVyhnUq5rwCmJ1zYqS7D1DLrr2ipump: 5kp1q4K8eCGmzSQCY881jUhE35DqdNPUnC9aSXtT6PBv, Liq_USD: 52322.26, Price_USD: 0.00023340
+2025-06-15 16:39:20 [INFO] [risk_detector.py:292] - Successfully wrote 1 processed token entries to C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\token_risk_analysis.csv
+2025-06-15 16:39:20 [INFO] [risk_detector.py:298] - --- Full Token Risk Analysis Finished ---
+2025-06-15 16:39:20 [ERROR] [MainThread] test_chrome:437 - Risk detector output file not created at C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\filtered_tokens_with_all_risks.csv
+2025-06-15 16:39:25 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:39:40 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:39:55 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:40:10 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:40:25 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:40:40 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:40:55 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:41:10 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:41:25 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+
+--- Watchdog launching test_chrome.py at Sun Jun 15 16:49:37 2025 due to sniperx_results_1m.csv change ---
+2025-06-15 16:49:38 [INFO] [MainThread] test_chrome:516 - --- Starting Bubblemaps Extractor (Multi-Threaded) ---
+2025-06-15 16:49:38 [INFO] [MainThread] test_chrome:71 - Chrome binary found at: C:\Program Files\Google\Chrome\Application\chrome.exe
+2025-06-15 16:49:38 [INFO] [MainThread] test_chrome:480 - CSV file size changed from 0 to 290 bytes
+2025-06-15 16:49:38 [INFO] [MainThread] test_chrome:122 - Found new token to process: BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump
+2025-06-15 16:49:38 [INFO] [MainThread] test_chrome:496 - Submitting 1 new tokens: BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump
+2025-06-15 16:49:38 [INFO] [BubbleWorker_0] test_chrome:345 - [Thread-5272] --- Starting processing for token: BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump ---
+2025-06-15 16:49:42 [INFO] [BubbleWorker_0] test_chrome:352 - [Thread-5272] Page readyState complete for BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump.
+2025-06-15 16:49:47 [INFO] [BubbleWorker_0] test_chrome:358 - [Thread-5272] Timestamp: 'a few seconds ago' for BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump
+2025-06-15 16:49:47 [INFO] [BubbleWorker_0] test_chrome:360 - [Thread-5272] Data fresh for BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump.
+2025-06-15 16:49:47 [INFO] [BubbleWorker_0] test_chrome:382 - [Thread-5272] Attempting visibility control for BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump.
+2025-06-15 16:49:47 [INFO] [BubbleWorker_0] test_chrome:390 - [Thread-5272] Visibility control disabled.
+2025-06-15 16:49:50 [INFO] [BubbleWorker_0] test_chrome:334 - Saved cluster summary for BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump: Clusters=0, GlobalSupply=0.00%, Status=CLEAN
+2025-06-15 16:49:50 [INFO] [BubbleWorker_0] test_chrome:397 - [Thread-5272] --- Finished processing token: BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump ---
+2025-06-15 16:49:53 [INFO] [MainThread] test_chrome:466 - Bubblemaps SUCCESS for BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump.
+2025-06-15 16:49:53 [INFO] [MainThread] test_chrome:473 - 1 tokens updated. Triggering risk_detector.py.
+2025-06-15 16:49:53 [INFO] [MainThread] test_chrome:407 - Attempting to run risk_detector.py...
+2025-06-15 16:49:55 [INFO] [MainThread] test_chrome:428 - risk_detector.py completed successfully.
+2025-06-15 16:49:55 [WARNING] [MainThread] test_chrome:430 - Risk Detector STDERR:
+2025-06-15 16:49:54 [INFO] [risk_detector.py:166] - --- Starting Full Token Risk Analysis ---
+2025-06-15 16:49:54 [INFO] [risk_detector.py:180] - Loaded 1 tokens from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv
+2025-06-15 16:49:54 [INFO] [risk_detector.py:160] - Successfully loaded 1 entries from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\cluster_summaries.csv
+2025-06-15 16:49:54 [INFO] [risk_detector.py:213] - Processing token: BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump (ROOMCON)
+2025-06-15 16:49:54 [INFO] [risk_detector.py:29] - [DEXSCREENER] Querying for pairs: https://api.dexscreener.com/latest/dex/search?q=BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump
+2025-06-15 16:49:54 [INFO] [risk_detector.py:113] - [DEXSCREENER] Primary pair for BLTHfX6stpJfMrdJQMUB5uPySgFHj9Y5ucAuHEQ5pump: GAdQCoTi6VHCQ71rtneEYiyVMNvpgUUiScsx56Yqbaoi, Liq_USD: 49286.30, Price_USD: 0.00020470
+2025-06-15 16:49:54 [INFO] [risk_detector.py:292] - Successfully wrote 1 processed token entries to C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\token_risk_analysis.csv
+2025-06-15 16:49:54 [INFO] [risk_detector.py:298] - --- Full Token Risk Analysis Finished ---
+2025-06-15 16:49:55 [ERROR] [MainThread] test_chrome:437 - Risk detector output file not created at C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\filtered_tokens_with_all_risks.csv
+2025-06-15 16:50:00 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:50:15 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:50:30 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:50:45 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:51:00 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:51:15 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:51:30 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:51:45 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:52:00 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:52:15 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:52:30 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...
+2025-06-15 16:52:45 [INFO] [MainThread] test_chrome:501 - No new tokens, no active tasks. Waiting 15s...

@@ -65,24 +65,21 @@ async def start_command(update: Update, context: CallbackContext) -> None:
             if update.message:
                 await update.message.reply_text("Starting wallet manager...")
             
+            # Start the wallet manager without piping stdout/stderr to avoid
+            # blocking if the buffers fill up. Output will be inherited by the
+            # parent process and written directly to the console or logs.
             wallet_manager_process = subprocess.Popen(
                 [sys.executable, WALLET_MANAGER_PATH],
-                cwd=SCRIPT_DIR,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,  # Line buffered
-                universal_newlines=True
+                cwd=SCRIPT_DIR
             )
             
             # Wait a moment for wallet manager to initialize
             await asyncio.sleep(2)
             
-            # Check if wallet manager started successfully
+            # Check if the wallet manager exited immediately
             if wallet_manager_process.poll() is not None:
-                error = wallet_manager_process.stderr.read() if wallet_manager_process.stderr else "Unknown error"
                 if update.message:
-                    await update.message.reply_text(f"Failed to start wallet manager: {error}")
+                    await update.message.reply_text("Failed to start wallet manager.")
                 return
             
             # Start SniperX

@@ -12,6 +12,7 @@ import time
 from dotenv import load_dotenv
 import subprocess
 import logging
+import signal
 load_dotenv()
 
 # --- Global Configurations & Constants ---
@@ -430,14 +431,45 @@ def initialize_all_files_once(script_dir_path):
 
 def start_slave_watchdog(script_dir_path):
     slave_script_path = os.path.join(script_dir_path, 'run_testchrone_on_csv_change.py')
+    pid_file = os.path.join(script_dir_path, 'testchrone_watchdog.pid')
     if not os.path.exists(slave_script_path):
         logging.error(f"Watchdog script '{slave_script_path}' not found.")
         return None
+
+    # Terminate previous watchdog process if PID file exists
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, 'r') as pf:
+                old_pid = int(pf.read().strip())
+            logging.info(f"Found previous watchdog PID {old_pid}. Attempting termination...")
+            os.kill(old_pid, signal.SIGTERM)
+            start_time = time.time()
+            while time.time() - start_time < 5:
+                try:
+                    os.kill(old_pid, 0)
+                    time.sleep(0.5)
+                except OSError:
+                    break
+            else:
+                os.kill(old_pid, signal.SIGKILL)
+                logging.info(f"Force killed watchdog PID {old_pid} after timeout.")
+        except Exception as e:
+            logging.info(f"Unable to terminate previous watchdog PID from file: {e}")
+        finally:
+            try:
+                os.remove(pid_file)
+            except FileNotFoundError:
+                pass
+
     try:
         process = subprocess.Popen([sys.executable, slave_script_path], cwd=script_dir_path)
+        with open(pid_file, 'w') as pf:
+            pf.write(str(process.pid))
         logging.info(f"Watchdog script '{slave_script_path}' started with PID {process.pid}.")
         return process
-    except Exception as e: logging.error(f"Failed to start watchdog: {e}"); return None
+    except Exception as e:
+        logging.error(f"Failed to start watchdog: {e}")
+        return None
 
 def main_token_processing_loop(script_dir_path):
     tokens = get_graduated_tokens()
@@ -539,6 +571,14 @@ if __name__ == "__main__":
         if watchdog_process and watchdog_process.poll() is None:
             logging.info("Terminating watchdog process...")
             watchdog_process.terminate()
-            try: watchdog_process.wait(timeout=5)
-            except subprocess.TimeoutExpired: watchdog_process.kill()
+            pid_file = os.path.join(SCRIPT_DIRECTORY, 'testchrone_watchdog.pid')
+            try:
+                watchdog_process.wait(timeout=5)
+                logging.info(f"Watchdog process PID {watchdog_process.pid} terminated.")
+            except subprocess.TimeoutExpired:
+                watchdog_process.kill()
+                logging.info(f"Watchdog process PID {watchdog_process.pid} killed after timeout.")
+            finally:
+                if os.path.exists(pid_file):
+                    os.remove(pid_file)
         logging.info("--- SniperX V2 Finished ---")

@@ -32,7 +32,8 @@ OPENED_TOKENS_FILE = 'opened_tokens.txt'
 EXTRACTED_DATA_DIR = 'bubblemaps_token_data'
 CLUSTER_SUMMARY_FILE = 'cluster_summaries.csv'
 
-INDIVIDUAL_ADDRESS_MUIBOX_CLASS = 'css-141d73e' # Class indicating an individual, non-clustered wallet
+# Exact CSS class string that Bubblemaps uses for non-clustered addresses.
+INDIVIDUAL_ADDRESS_MUIBOX_CLASS = 'css-141d73e'
 RANK1_AS_CLUSTER_KEY = "Rank1_Treated_As_Cluster" # Special key for Rank #1 if it's individual but treated as cluster
 
 CHECK_INTERVAL = 15
@@ -248,7 +249,12 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
         current_muibox_class_string = item_data.get('MuiBox_Class_String', "MuiBox-Not-Found")
         is_rank_one = (rank_to_find_str == "1")
 
-        is_individual_wallet_visual = INDIVIDUAL_ADDRESS_MUIBOX_CLASS in current_muibox_class_string.split()
+        # Determine if the current list entry visually represents an individual wallet.
+        # Any MuiBox class string that differs from the exact
+        # "MuiBox-root css-141d73e" should be treated as a cluster.
+        normalized_class = " ".join(current_muibox_class_string.split())
+        individual_class = f"MuiBox-root {INDIVIDUAL_ADDRESS_MUIBOX_CLASS}"
+        is_individual_wallet_visual = normalized_class == individual_class
 
         if is_rank_one and is_individual_wallet_visual:
             logging.info(f"[{thread_id_str}] Rank #1 ({address_to_find}) is visually individual. Treating its own holdings as its cluster data.")

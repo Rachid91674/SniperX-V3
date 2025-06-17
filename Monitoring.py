@@ -254,52 +254,55 @@ def get_dexscreener_data(token_address: str):
 
 # --- WebSocket Listener ---
 async def listen_for_trades(mint_address_to_monitor):
-    global g_latest_trade_data, g_token_name # g_token_name for logging
+    global g_latest_trade_data, g_token_name
     uri = "wss://pumpportal.fun/api/data"
-    
-    # Store the token name at the start of this task's instance for consistent logging,
-    # as g_token_name might change if a restart is triggered while this task is trying to reconnect.
-    current_task_token_name = g_token_name 
-    
+
+    # Preserve the token name for logging in case globals change during a restart
+    current_task_token_name = g_token_name
+
     while True:
         try:
-            async with websockets.connect(uri) as ws:
-                await ws.send(json.dumps({
+            async with websockets.connect(uri) as websocket:
+                subscribe_payload = {
                     "method": "subscribeTokenTrade",
-                    "keys": [mint_address_to_monitor]
-                }))
-                print(f"📡 Subscribed to trades for token: {current_task_token_name} ({mint_address_to_monitor})")
-                while True:
-                    message = await ws.recv()
+                    "keys": [mint_address_to_monitor],
+                }
+                await websocket.send(json.dumps(subscribe_payload))
+                print(
+                    f"📡 Subscribed to trades for token: {current_task_token_name} ({mint_address_to_monitor})"
+                )
+
+                async for message in websocket:
                     data = json.loads(message)
-                    
-                    if data.get("mint") != mint_address_to_monitor: 
+                    if data.get("mint") != mint_address_to_monitor:
                         continue
 
-                    if 'tokenAmount' in data and 'solAmount' in data:
+                    if "tokenAmount" in data and "solAmount" in data:
                         try:
                             trade = {
                                 "amount": float(data["tokenAmount"]),
                                 "solAmount": float(data["solAmount"]),
                                 "side": data.get("side", "").lower(),
-                                "wallet": data.get("wallet", "")
+                                "wallet": data.get("wallet", ""),
                             }
                             g_latest_trade_data.append(trade)
                         except ValueError:
-                            print(f"❌ WebSocket received non-numeric trade data for {current_task_token_name}: {data}")
+                            print(
+                                f"❌ WebSocket received non-numeric trade data for {current_task_token_name}: {data}"
+                            )
         except websockets.exceptions.ConnectionClosed as e:
-            print(f"🔌 WebSocket connection closed for {current_task_token_name}: {e}. Reconnecting in 5 seconds...")
+            print(
+                f"🔌 WebSocket connection closed for {current_task_token_name}: {e}. Reconnecting in 5 seconds..."
+            )
         except asyncio.CancelledError:
             print(f"📡 WebSocket listener for {current_task_token_name} cancelled.")
-            raise 
+            raise
         except Exception as e:
-            print(f"❌ WebSocket Error for {current_task_token_name}: {e}. Reconnecting in 5 seconds...")
-        
-        # If an exception other than CancelledError occurred, wait before retrying
-        # Need to access the exception object from the except block.
-        # This check assumes 'e' is still in scope from the most recent exception.
-        # A more robust way is to check for cancellation explicitly if Python version allows easily.
-        # For now, this structure is common: if cancelled, it re-raises. Otherwise, it sleeps.
+            print(
+                f"❌ WebSocket Error for {current_task_token_name}: {e}. Reconnecting in 5 seconds..."
+            )
+
+        # Any exception besides cancellation triggers a short delay before reconnecting
         await asyncio.sleep(5)
 
 

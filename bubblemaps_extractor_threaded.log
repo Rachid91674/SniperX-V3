@@ -1,152 +1,83 @@
-2025-06-17 15:12:21 [INFO] [MainThread] test_chrome:782 - --- Starting Bubblemaps Extractor (Multi-Threaded) ---
-2025-06-17 15:12:21 [INFO] [MainThread] test_chrome:77 - Chrome binary found at: C:\Program Files\Google\Chrome\Application\chrome.exe
-2025-06-17 15:12:21 [INFO] [MainThread] test_chrome:746 - CSV file size changed from 0 to 297 bytes
-2025-06-17 15:12:21 [INFO] [MainThread] test_chrome:128 - Found new token to process: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:12:21 [INFO] [MainThread] test_chrome:762 - Submitting 1 new tokens: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:12:21 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:12:21 [INFO] [BubbleWorker_0] test_chrome:437 - [Thread-13548] --- Starting processing for token: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump ---
-2025-06-17 15:12:27 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-13548] Attempt 1/3 for token: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:12:29 [INFO] [BubbleWorker_0] test_chrome:458 - [Thread-13548] Page readyState complete for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump (Attempt 1).
-2025-06-17 15:12:30 [INFO] [BubbleWorker_0] test_chrome:466 - [Thread-13548] Initial 'Address List' is visible for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump (Attempt 1).
-2025-06-17 15:12:31 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:12:33 [INFO] [BubbleWorker_0] test_chrome:478 - [Thread-13548] Timestamp: 'in a few seconds' (Attempt 1).
-2025-06-17 15:12:33 [INFO] [BubbleWorker_0] test_chrome:488 - [Thread-13548] Data not fresh. Attempting in-page refresh (Attempt 1).
-2025-06-17 15:12:41 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:12:48 [WARNING] [BubbleWorker_0] test_chrome:501 - [Thread-13548] Refresh icon (data-testid='RefreshIcon') not found or not clickable for in-page refresh (Attempt 1). Continuing process as per request.
-2025-06-17 15:12:48 [INFO] [BubbleWorker_0] test_chrome:531 - [Thread-13548] Data still not fresh. Attempting full browser refresh (Attempt 1).
-2025-06-17 15:12:51 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:12:56 [INFO] [BubbleWorker_0] test_chrome:545 - [Thread-13548] Data fresh after full browser refresh (Attempt 1).
-2025-06-17 15:12:56 [INFO] [BubbleWorker_0] test_chrome:567 - [Thread-13548] 'Show Contract' not checked. Clicking (Attempt 1).
-2025-06-17 15:12:59 [INFO] [BubbleWorker_0] test_chrome:576 - [Thread-13548] 'Show Contract' successfully checked (Attempt 1).
-2025-06-17 15:13:01 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:13:02 [ERROR] [BubbleWorker_0] test_chrome:593 - [Thread-13548] Failed to extract initial address list (Attempt 1).
-2025-06-17 15:13:02 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-13548] Attempt 2/3 for token: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:13:02 [INFO] [BubbleWorker_0] test_chrome:452 - [Thread-13548] Reloading page for attempt 2.
-2025-06-17 15:13:03 [INFO] [BubbleWorker_0] test_chrome:458 - [Thread-13548] Page readyState complete for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump (Attempt 2).
-2025-06-17 15:13:04 [INFO] [BubbleWorker_0] test_chrome:466 - [Thread-13548] Initial 'Address List' is visible for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump (Attempt 2).
-2025-06-17 15:13:06 [INFO] [BubbleWorker_0] test_chrome:478 - [Thread-13548] Timestamp: 'a few seconds ago' (Attempt 2).
-2025-06-17 15:13:06 [INFO] [BubbleWorker_0] test_chrome:481 - [Thread-13548] Data is fresh (Attempt 2).
-2025-06-17 15:13:06 [INFO] [BubbleWorker_0] test_chrome:567 - [Thread-13548] 'Show Contract' not checked. Clicking (Attempt 2).
-2025-06-17 15:13:09 [INFO] [BubbleWorker_0] test_chrome:576 - [Thread-13548] 'Show Contract' successfully checked (Attempt 2).
-2025-06-17 15:13:11 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:13:12 [ERROR] [BubbleWorker_0] test_chrome:593 - [Thread-13548] Failed to extract initial address list (Attempt 2).
-2025-06-17 15:13:12 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-13548] Attempt 3/3 for token: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:13:12 [INFO] [BubbleWorker_0] test_chrome:452 - [Thread-13548] Reloading page for attempt 3.
-2025-06-17 15:13:13 [INFO] [BubbleWorker_0] test_chrome:458 - [Thread-13548] Page readyState complete for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump (Attempt 3).
-2025-06-17 15:13:14 [INFO] [BubbleWorker_0] test_chrome:466 - [Thread-13548] Initial 'Address List' is visible for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump (Attempt 3).
-2025-06-17 15:13:16 [INFO] [BubbleWorker_0] test_chrome:478 - [Thread-13548] Timestamp: 'a few seconds ago' (Attempt 3).
-2025-06-17 15:13:16 [INFO] [BubbleWorker_0] test_chrome:481 - [Thread-13548] Data is fresh (Attempt 3).
-2025-06-17 15:13:16 [INFO] [BubbleWorker_0] test_chrome:567 - [Thread-13548] 'Show Contract' not checked. Clicking (Attempt 3).
-2025-06-17 15:13:20 [INFO] [BubbleWorker_0] test_chrome:576 - [Thread-13548] 'Show Contract' successfully checked (Attempt 3).
-2025-06-17 15:13:21 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:13:23 [ERROR] [BubbleWorker_0] test_chrome:593 - [Thread-13548] Failed to extract initial address list (Attempt 3).
-2025-06-17 15:13:26 [INFO] [BubbleWorker_0] test_chrome:668 - [Thread-13548] WebDriver quit for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump.
-2025-06-17 15:13:31 [ERROR] [MainThread] test_chrome:735 - Bubblemaps FAILED for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump.
-2025-06-17 15:13:32 [INFO] [MainThread] test_chrome:128 - Found new token to process: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:13:32 [INFO] [MainThread] test_chrome:762 - Submitting 1 new tokens: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:13:32 [INFO] [BubbleWorker_0] test_chrome:437 - [Thread-13548] --- Starting processing for token: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump ---
-2025-06-17 15:13:32 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:13:33 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-13548] Attempt 1/3 for token: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:13:35 [INFO] [BubbleWorker_0] test_chrome:458 - [Thread-13548] Page readyState complete for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump (Attempt 1).
-2025-06-17 15:13:37 [INFO] [BubbleWorker_0] test_chrome:466 - [Thread-13548] Initial 'Address List' is visible for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump (Attempt 1).
-2025-06-17 15:13:39 [INFO] [BubbleWorker_0] test_chrome:478 - [Thread-13548] Timestamp: 'a minute ago' (Attempt 1).
-2025-06-17 15:13:39 [INFO] [BubbleWorker_0] test_chrome:488 - [Thread-13548] Data not fresh. Attempting in-page refresh (Attempt 1).
-2025-06-17 15:13:42 [INFO] [MainThread] test_chrome:772 - Pool full (1). Waiting...
-2025-06-17 15:13:44 [WARNING] [BubbleWorker_0] test_chrome:504 - [Thread-13548] Error finding/clicking refresh icon during in-page refresh (Attempt 1): Message: invalid session id: session deleted as the browser has closed the connection
-from disconnected: not connected to DevTools
+2025-06-17 17:50:18 [INFO] [MainThread] test_chrome:788 - --- Starting Bubblemaps Extractor (Multi-Threaded) ---
+2025-06-17 17:50:18 [INFO] [MainThread] test_chrome:77 - Chrome binary found at: C:\Program Files\Google\Chrome\Application\chrome.exe
+2025-06-17 17:50:18 [INFO] [MainThread] test_chrome:752 - CSV file size changed from 0 to 296 bytes
+2025-06-17 17:50:18 [INFO] [MainThread] test_chrome:128 - Found new token to process: 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump
+2025-06-17 17:50:18 [INFO] [MainThread] test_chrome:768 - Submitting 1 new tokens: 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump
+2025-06-17 17:50:18 [INFO] [MainThread] test_chrome:778 - Pool full (1). Waiting...
+2025-06-17 17:50:18 [INFO] [BubbleWorker_0] test_chrome:443 - [Thread-25652] --- Starting processing for token: 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump ---
+2025-06-17 17:50:20 [INFO] [BubbleWorker_0] test_chrome:453 - [Thread-25652] Attempt 1/3 for token: 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump
+2025-06-17 17:50:24 [INFO] [BubbleWorker_0] test_chrome:464 - [Thread-25652] Page readyState complete for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump (Attempt 1).
+2025-06-17 17:50:26 [INFO] [BubbleWorker_0] test_chrome:472 - [Thread-25652] Initial 'Address List' is visible for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump (Attempt 1).
+2025-06-17 17:50:28 [INFO] [BubbleWorker_0] test_chrome:484 - [Thread-25652] Timestamp: 'a few seconds ago' (Attempt 1).
+2025-06-17 17:50:28 [INFO] [BubbleWorker_0] test_chrome:487 - [Thread-25652] Data is fresh (Attempt 1).
+2025-06-17 17:50:28 [INFO] [BubbleWorker_0] test_chrome:573 - [Thread-25652] 'Show Contract' not checked. Clicking (Attempt 1).
+2025-06-17 17:50:28 [INFO] [MainThread] test_chrome:778 - Pool full (1). Waiting...
+2025-06-17 17:50:30 [WARNING] [BubbleWorker_0] test_chrome:589 - [Thread-25652] 'Show Contract' interaction failed (Attempt 1): Message: element click intercepted: Element <span class="MuiButtonBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeSmall Mui-disabled PrivateSwitchBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeSmall Mui-disabled MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeSmall css-1q5trc2" tabindex="-1" aria-disabled="true">...</span> is not clickable at point (1200, 180). Other element would receive the click: <label class="MuiFormControlLabel-root Mui-disabled MuiFormControlLabel-labelPlacementEnd css-tn32ew">...</label>
   (Session info: chrome=137.0.7151.104)
 Stacktrace:
-	GetHandleVerifier [0x0x7ff682dbfe75+79173]
-	GetHandleVerifier [0x0x7ff682dbfed0+79264]
-	(No symbol) [0x0x7ff682b79e5a]
-	(No symbol) [0x0x7ff682b65c25]
-	(No symbol) [0x0x7ff682b8ac44]
-	(No symbol) [0x0x7ff682c003c5]
-	(No symbol) [0x0x7ff682c20922]
-	(No symbol) [0x0x7ff682bf8743]
-	(No symbol) [0x0x7ff682bc14c1]
-	(No symbol) [0x0x7ff682bc2253]
-	GetHandleVerifier [0x0x7ff68308a2ad+3004797]
-	GetHandleVerifier [0x0x7ff6830846fd+2981325]
-	GetHandleVerifier [0x0x7ff6830a3350+3107360]
-	GetHandleVerifier [0x0x7ff682dda9fe+188622]
-	GetHandleVerifier [0x0x7ff682de228f+219487]
-	GetHandleVerifier [0x0x7ff682dc8dc4+115860]
-	GetHandleVerifier [0x0x7ff682dc8f79+116297]
-	GetHandleVerifier [0x0x7ff682daf528+11256]
-	BaseThreadInitThunk [0x0x7ffd34a7e8d7+23]
-	RtlUserThreadStart [0x0x7ffd3607c34c+44]
-. Continuing.
-2025-06-17 15:13:44 [INFO] [BubbleWorker_0] test_chrome:531 - [Thread-13548] Data still not fresh. Attempting full browser refresh (Attempt 1).
-2025-06-17 15:13:45 [ERROR] [BubbleWorker_0] test_chrome:549 - [Thread-13548] Full browser refresh failed or data still not fresh (Attempt 1): Message: invalid session id
-Stacktrace:
-	GetHandleVerifier [0x0x7ff682dbfe75+79173]
-	GetHandleVerifier [0x0x7ff682dbfed0+79264]
-	(No symbol) [0x0x7ff682b79c8c]
-	(No symbol) [0x0x7ff682bc05ef]
-	(No symbol) [0x0x7ff682bf8832]
-	(No symbol) [0x0x7ff682bf3233]
-	(No symbol) [0x0x7ff682bf22f9]
-	(No symbol) [0x0x7ff682b45fc5]
-	GetHandleVerifier [0x0x7ff68308a2ad+3004797]
-	GetHandleVerifier [0x0x7ff6830846fd+2981325]
-	GetHandleVerifier [0x0x7ff6830a3350+3107360]
-	GetHandleVerifier [0x0x7ff682dda9fe+188622]
-	GetHandleVerifier [0x0x7ff682de228f+219487]
-	(No symbol) [0x0x7ff682b45036]
-	GetHandleVerifier [0x0x7ff6831a3c48+4158232]
+	GetHandleVerifier [0x0x7ff7e6bbfe75+79173]
+	GetHandleVerifier [0x0x7ff7e6bbfed0+79264]
+	(No symbol) [0x0x7ff7e6979e5a]
+	(No symbol) [0x0x7ff7e69d8599]
+	(No symbol) [0x0x7ff7e69d5f32]
+	(No symbol) [0x0x7ff7e69d2f71]
+	(No symbol) [0x0x7ff7e69d1e61]
+	(No symbol) [0x0x7ff7e69c3464]
+	(No symbol) [0x0x7ff7e69f896a]
+	(No symbol) [0x0x7ff7e69c2d16]
+	(No symbol) [0x0x7ff7e69f8b80]
+	(No symbol) [0x0x7ff7e6a2100d]
+	(No symbol) [0x0x7ff7e69f8743]
+	(No symbol) [0x0x7ff7e69c14c1]
+	(No symbol) [0x0x7ff7e69c2253]
+	GetHandleVerifier [0x0x7ff7e6e8a2ad+3004797]
+	GetHandleVerifier [0x0x7ff7e6e846fd+2981325]
+	GetHandleVerifier [0x0x7ff7e6ea3350+3107360]
+	GetHandleVerifier [0x0x7ff7e6bda9fe+188622]
+	GetHandleVerifier [0x0x7ff7e6be228f+219487]
+	GetHandleVerifier [0x0x7ff7e6bc8dc4+115860]
+	GetHandleVerifier [0x0x7ff7e6bc8f79+116297]
+	GetHandleVerifier [0x0x7ff7e6baf528+11256]
 	BaseThreadInitThunk [0x0x7ffd34a7e8d7+23]
 	RtlUserThreadStart [0x0x7ffd3607c34c+44]
 .
-2025-06-17 15:13:45 [ERROR] [BubbleWorker_0] test_chrome:552 - [Thread-13548] CRITICAL: Data not fresh after all checks and refreshes on attempt 1.
-2025-06-17 15:13:45 [INFO] [BubbleWorker_0] test_chrome:447 - [Thread-13548] Attempt 2/3 for token: 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump
-2025-06-17 15:13:45 [INFO] [BubbleWorker_0] test_chrome:452 - [Thread-13548] Reloading page for attempt 2.
-2025-06-17 15:13:45 [ERROR] [BubbleWorker_0] test_chrome:632 - [Thread-13548] Error during attempt 2 for token 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump: Message: invalid session id
-Stacktrace:
-	GetHandleVerifier [0x0x7ff682dbfe75+79173]
-	GetHandleVerifier [0x0x7ff682dbfed0+79264]
-	(No symbol) [0x0x7ff682b79c8c]
-	(No symbol) [0x0x7ff682bc05ef]
-	(No symbol) [0x0x7ff682bf8832]
-	(No symbol) [0x0x7ff682bf3233]
-	(No symbol) [0x0x7ff682bf22f9]
-	(No symbol) [0x0x7ff682b45fc5]
-	GetHandleVerifier [0x0x7ff68308a2ad+3004797]
-	GetHandleVerifier [0x0x7ff6830846fd+2981325]
-	GetHandleVerifier [0x0x7ff6830a3350+3107360]
-	GetHandleVerifier [0x0x7ff682dda9fe+188622]
-	GetHandleVerifier [0x0x7ff682de228f+219487]
-	(No symbol) [0x0x7ff682b45036]
-	GetHandleVerifier [0x0x7ff6831a3c48+4158232]
-	BaseThreadInitThunk [0x0x7ffd34a7e8d7+23]
-	RtlUserThreadStart [0x0x7ffd3607c34c+44]
-Traceback (most recent call last):
-  File "C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\test_chrome.py", line 453, in process_single_token_threaded
-    thread_driver.refresh()
-  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\.venv\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 716, in refresh
-    self.execute(Command.REFRESH)
-  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\.venv\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 447, in execute
-    self.error_handler.check_response(response)
-  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\.venv\lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 232, in check_response
-    raise exception_class(message, screen, stacktrace)
-selenium.common.exceptions.InvalidSessionIdException: Message: invalid session id
-Stacktrace:
-	GetHandleVerifier [0x0x7ff682dbfe75+79173]
-	GetHandleVerifier [0x0x7ff682dbfed0+79264]
-	(No symbol) [0x0x7ff682b79c8c]
-	(No symbol) [0x0x7ff682bc05ef]
-	(No symbol) [0x0x7ff682bf8832]
-	(No symbol) [0x0x7ff682bf3233]
-	(No symbol) [0x0x7ff682bf22f9]
-	(No symbol) [0x0x7ff682b45fc5]
-	GetHandleVerifier [0x0x7ff68308a2ad+3004797]
-	GetHandleVerifier [0x0x7ff6830846fd+2981325]
-	GetHandleVerifier [0x0x7ff6830a3350+3107360]
-	GetHandleVerifier [0x0x7ff682dda9fe+188622]
-	GetHandleVerifier [0x0x7ff682de228f+219487]
-	(No symbol) [0x0x7ff682b45036]
-	GetHandleVerifier [0x0x7ff6831a3c48+4158232]
-	BaseThreadInitThunk [0x0x7ffd34a7e8d7+23]
-	RtlUserThreadStart [0x0x7ffd3607c34c+44]
-
-2025-06-17 15:13:45 [INFO] [BubbleWorker_0] test_chrome:641 - [Thread-13548] Attempt 2 failed for 4oK88xk9iJwELMwT8yaKg6juivu4pWAjA54caVRypump. Retrying after delay...
+2025-06-17 17:50:30 [ERROR] [BubbleWorker_0] test_chrome:592 - [Thread-25652] CRITICAL: 'Show Contract' interaction failed on attempt 1.
+2025-06-17 17:50:30 [INFO] [BubbleWorker_0] test_chrome:453 - [Thread-25652] Attempt 2/3 for token: 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump
+2025-06-17 17:50:30 [INFO] [BubbleWorker_0] test_chrome:458 - [Thread-25652] Reloading page for attempt 2.
+2025-06-17 17:50:31 [INFO] [BubbleWorker_0] test_chrome:464 - [Thread-25652] Page readyState complete for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump (Attempt 2).
+2025-06-17 17:50:32 [INFO] [BubbleWorker_0] test_chrome:472 - [Thread-25652] Initial 'Address List' is visible for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump (Attempt 2).
+2025-06-17 17:50:34 [INFO] [BubbleWorker_0] test_chrome:484 - [Thread-25652] Timestamp: 'a few seconds ago' (Attempt 2).
+2025-06-17 17:50:34 [INFO] [BubbleWorker_0] test_chrome:487 - [Thread-25652] Data is fresh (Attempt 2).
+2025-06-17 17:50:35 [INFO] [BubbleWorker_0] test_chrome:573 - [Thread-25652] 'Show Contract' not checked. Clicking (Attempt 2).
+2025-06-17 17:50:38 [INFO] [MainThread] test_chrome:778 - Pool full (1). Waiting...
+2025-06-17 17:50:39 [INFO] [BubbleWorker_0] test_chrome:582 - [Thread-25652] 'Show Contract' successfully checked (Attempt 2).
+2025-06-17 17:50:48 [INFO] [MainThread] test_chrome:778 - Pool full (1). Waiting...
+2025-06-17 17:50:55 [INFO] [BubbleWorker_0] test_chrome:608 - [Thread-25652] Rank #1 found in initial data (Attempt 2).
+2025-06-17 17:50:55 [INFO] [BubbleWorker_0] test_chrome:611 - [Thread-25652] Attempting to click clusters and extract supply data (Attempt 2).
+2025-06-17 17:50:55 [INFO] [BubbleWorker_0] test_chrome:254 - [Thread-25652] Rank #1 (PumpSwap (CTO-SOL)) is visually individual. Treating its own holdings as its cluster data.
+2025-06-17 17:50:55 [INFO] [BubbleWorker_0] test_chrome:620 - [Thread-25652] click_clusters_and_extract_supply_data completed (Attempt 2).
+2025-06-17 17:50:55 [INFO] [BubbleWorker_0] test_chrome:432 - Saved cluster summary for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump: Clusters=1, GlobalSupply=22.26%, Status=RISKY
+2025-06-17 17:50:55 [INFO] [BubbleWorker_0] test_chrome:630 - [Thread-25652] Successfully processed and saved data for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump on attempt 2.
+2025-06-17 17:50:58 [INFO] [MainThread] test_chrome:778 - Pool full (1). Waiting...
+2025-06-17 17:51:01 [INFO] [BubbleWorker_0] test_chrome:674 - [Thread-25652] WebDriver quit for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump.
+2025-06-17 17:51:08 [INFO] [MainThread] test_chrome:738 - Bubblemaps SUCCESS for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump.
+2025-06-17 17:51:08 [INFO] [MainThread] test_chrome:745 - 1 tokens updated. Triggering risk_detector.py.
+2025-06-17 17:51:08 [INFO] [MainThread] test_chrome:679 - Attempting to run risk_detector.py...
+2025-06-17 17:51:11 [INFO] [MainThread] test_chrome:700 - risk_detector.py completed successfully.
+2025-06-17 17:51:11 [WARNING] [MainThread] test_chrome:702 - Risk Detector STDERR:
+2025-06-17 17:51:09 [INFO] [risk_detector.py:166] - --- Starting Full Token Risk Analysis ---
+2025-06-17 17:51:10 [INFO] [risk_detector.py:180] - Loaded 1 tokens from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv
+2025-06-17 17:51:10 [INFO] [risk_detector.py:160] - Successfully loaded 4 entries from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\cluster_summaries.csv
+2025-06-17 17:51:10 [INFO] [risk_detector.py:213] - Processing token: 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump (Cats Take Over)
+2025-06-17 17:51:10 [INFO] [risk_detector.py:29] - [DEXSCREENER] Querying for pairs: https://api.dexscreener.com/latest/dex/search?q=8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump
+2025-06-17 17:51:10 [INFO] [risk_detector.py:113] - [DEXSCREENER] Primary pair for 8ZXHS5FitVeHJcMYnXn8Qs6kspVVLymtzPxn5es4pump: BTvu8W1qQYoRr7TR21NBXs5XuKT5RbC2ZPGv4xWvpLfB, Liq_USD: 23391.03, Price_USD: 0.00005246
+2025-06-17 17:51:10 [INFO] [risk_detector.py:292] - Successfully wrote 1 processed token entries to C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\token_risk_analysis.csv
+2025-06-17 17:51:10 [INFO] [risk_detector.py:298] - --- Full Token Risk Analysis Finished ---
+2025-06-17 17:51:11 [ERROR] [MainThread] test_chrome:709 - Risk detector output file not created at C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\filtered_tokens_with_all_risks.csv
+2025-06-17 17:51:16 [INFO] [MainThread] test_chrome:773 - No new tokens, no active tasks. Waiting 15s...
+2025-06-17 17:51:31 [INFO] [MainThread] test_chrome:773 - No new tokens, no active tasks. Waiting 15s...
+2025-06-17 17:51:46 [INFO] [MainThread] test_chrome:773 - No new tokens, no active tasks. Waiting 15s...
+2025-06-17 17:52:01 [INFO] [MainThread] test_chrome:773 - No new tokens, no active tasks. Waiting 15s...
+2025-06-17 17:52:16 [INFO] [MainThread] test_chrome:773 - No new tokens, no active tasks. Waiting 15s...
+2025-06-17 17:52:31 [INFO] [MainThread] test_chrome:773 - No new tokens, no active tasks. Waiting 15s...
+2025-06-17 17:52:46 [INFO] [MainThread] test_chrome:773 - No new tokens, no active tasks. Waiting 15s...

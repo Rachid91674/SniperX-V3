@@ -201,8 +201,9 @@ async def show_menu(update: Update, context: CallbackContext) -> None:
 async def read_wallet_balance():
     """Read the current wallet balance from the JSON file."""
     try:
-        if os.path.exists("wallet_balance.json"):
-            with open("wallet_balance.json", "r") as f:
+        balance_file_path = os.path.join(SCRIPT_DIR, "wallet_balance.json")
+        if os.path.exists(balance_file_path):
+            with open(balance_file_path, "r") as f:
                 data = json.load(f)
                 # Check if the data is recent (within last 5 minutes)
                 timestamp = float(data.get("timestamp", 0))

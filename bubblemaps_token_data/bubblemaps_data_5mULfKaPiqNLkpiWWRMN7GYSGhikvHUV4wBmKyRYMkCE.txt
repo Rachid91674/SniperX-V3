@@ -1,0 +1,11 @@
+Rank	Address	Individual_Percentage	MuiBox_Class	Cluster_Supply_Percentage
+1	PumpSwap (OPEN-SOL)	44.08	MuiBox-root css-1ug56mc	60.23
+2	ExgKYD...zg9u	3.19	MuiBox-root css-1ug56mc	60.23
+3	🔵🔵🔵.sol	2.65	MuiBox-root css-141d73e	0
+4	GEHvPc...b8wV	2.49	MuiBox-root css-141d73e	0
+5	lebronraymonejamesjr.sol	2.26	MuiBox-root css-141d73e	0
+6	2q8mLo...vNAf	2.07	MuiBox-root css-141d73e	0
+7	3nytsY...6Ld9	1.69	MuiBox-root css-1ug56mc	60.23
+8	3nrkRh...Q8Gm	1.46	MuiBox-root css-141d73e	0
+9	CANx1a...o8iJ	1.37	MuiBox-root css-141d73e	0
+10	niv781.sol	1.30	MuiBox-root css-141d73e	0

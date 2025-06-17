@@ -5,18 +5,25 @@ import aiohttp
 import csv
 import os
 import requests
+import subprocess
+import sys
 from collections import deque
 import time
+from datetime import datetime
 
 # --- Configuration ---
-INPUT_CSV_FILE = "token_risk_analysis.csv"
+INPUT_CSV_FILE = r"C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\token_risk_analysis.csv"
 SOL_PRICE_UPDATE_INTERVAL_SECONDS = 30
 TRADE_LOGIC_INTERVAL_SECONDS = 1
 CSV_CHECK_INTERVAL_SECONDS = 10  # How often to check the CSV for changes
+DEXSCREENER_PRICE_UPDATE_INTERVAL_SECONDS = 1  # How often to fetch price from Dexscreener when no trades
+# STATUS_PRINT_INTERVAL_SECONDS removed (status now prints every loop iteration)
 
 # --- Global State Variables ---
 g_last_known_sol_price = 155.0
 g_latest_trade_data = deque(maxlen=100)
+# Timestamp (epoch seconds) of the last Dexscreener price request
+g_last_dex_price_fetch_time = 0.0
 
 g_current_mint_address = None
 g_token_name = None
@@ -31,12 +38,85 @@ class RestartRequired(Exception):
     """Custom exception to signal a required restart of monitoring tasks."""
     pass
 
+def log_trade_result(token_name, mint_address, reason, buy_price=None, sell_price=None):
+    """Log trade results to a CSV file."""
+    log_file = 'trades.csv'
+    file_exists = os.path.isfile(log_file)
+    
+    with open(log_file, 'a', newline='') as f:
+        fieldnames = ['timestamp', 'token_name', 'mint_address', 'reason', 'buy_price', 'sell_price']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        
+        if not file_exists:
+            writer.writeheader()
+            
+        writer.writerow({
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'token_name': token_name,
+            'mint_address': mint_address,
+            'reason': reason,
+            'buy_price': f"{buy_price:.9f}" if buy_price is not None else '',
+            'sell_price': f"{sell_price:.9f}" if sell_price is not None else ''
+        })
+
+def restart_sniperx_v2():
+    """Restart the SniperX V2 script and exit current process."""
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        script_path = os.path.join(script_dir, 'SniperX V2.py')
+        
+        if os.path.exists(script_path):
+            # Clean up lock file if it exists
+            lock_file = os.path.join(script_dir, 'monitoring_active.lock')
+            if os.path.exists(lock_file):
+                try:
+                    os.remove(lock_file)
+                    print(f"🔓 Removed lock file: {lock_file}")
+                except Exception as e:
+                    print(f"⚠️ Could not remove lock file: {e}")
+            
+            # Start new process
+            python_executable = sys.executable
+            print(f"🔄 Restarting SniperX V2 script...")
+            
+            # Start the new process and exit current one
+            if os.name == 'nt':  # Windows
+                subprocess.Popen([python_executable, script_path], 
+                              creationflags=subprocess.CREATE_NEW_CONSOLE)
+            else:  # Unix/Linux/Mac
+                subprocess.Popen([python_executable, script_path],
+                              start_new_session=True)
+            
+            # Exit the current process
+            sys.exit(0)
+            
+        else:
+            print(f"❌ SniperX V2.py not found at {script_path}")
+            return False
+    except Exception as e:
+        print(f"❌ Failed to restart SniperX V2: {e}")
+        return False
+    return True
+
 class TokenProcessingComplete(Exception):
     """Signals that the current token's monitoring/trading lifecycle is complete."""
-    def __init__(self, mint_address, reason):
+    def __init__(self, mint_address, reason, buy_price=None, sell_price=None):
         self.mint_address = mint_address
         self.reason = reason
-        super().__init__(f"Token processing complete for {mint_address}: {reason}")
+        self.buy_price = buy_price
+        self.sell_price = sell_price
+        # Log the trade result
+        log_trade_result(g_token_name, mint_address, reason, buy_price, sell_price)
+        print(f"🔄 Token processing complete. Restarting SniperX V2...")
+        # Attempt to restart SniperX V2
+        if restart_sniperx_v2():
+            # If restart was successful, the process will exit before reaching here
+            pass
+        else:
+            # If restart failed, raise the exception with the original message
+            super().__init__(f"Token processing complete for {mint_address}: {reason}")
+            # Still exit to ensure clean state
+            sys.exit(0)
 
 # --- Token Lifecycle Configuration ---
 TAKE_PROFIT_THRESHOLD_PERCENT = 1.10  # e.g., 10% profit
@@ -163,94 +243,134 @@ def reset_token_specific_state():
 
 # --- SOL/USD Price Fetcher ---
 async def periodic_sol_price_updater():
+    """Periodically refresh the global SOL/USD price.
+
+    Primary source: Pump.Fun.  Fallback: Coingecko simple price API.
+    The function keeps the *same* update interval and preserves the previous
+    behaviour if both endpoints fail – it just leaves the old cached value.
+    """
     global g_last_known_sol_price
-    url = "https://frontend-api-v3.pump.fun/sol-price"
-    while True:
+
+    primary_url = "https://frontend-api-v3.pump.fun/sol-price"
+    secondary_url = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
+
+    async def fetch_json(session, url):
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        price = float(data.get("solPrice", 0))
-                        if price > 0:
-                            if g_last_known_sol_price != price:
-                                print(f"🔄 SOL/USD updated: {price:.2f} USD (was {g_last_known_sol_price:.2f} USD)")
-                                g_last_known_sol_price = price
-                    else:
-                        print(f"⚠️ Failed to fetch SOL/USD price (HTTP {resp.status}), using last known: {g_last_known_sol_price:.2f} USD")
-            await asyncio.sleep(SOL_PRICE_UPDATE_INTERVAL_SECONDS)
-        except asyncio.CancelledError:
-            print("🔄 SOL/USD price updater task cancelled.")
-            raise 
-        except Exception as e:
-            print(f"❌ Error in SOL/USD price updater: {e}. Using last known: {g_last_known_sol_price:.2f} USD. Retrying soon.")
-            await asyncio.sleep(SOL_PRICE_UPDATE_INTERVAL_SECONDS) # Wait before retrying on general error
+            async with session.get(url, timeout=10) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                return None
+        except Exception:
+            return None
+
+    async with aiohttp.ClientSession() as session:
+        while True:
+            try:
+                source_used = "Pump.Fun"
+                data = await fetch_json(session, primary_url)
+                price = None
+
+                if data and isinstance(data, dict):
+                    price = float(data.get("solPrice", 0)) or None
+
+                # Fallback if primary failed or gave 0/None
+                if not price:
+                    source_used = "Coingecko"
+                    data = await fetch_json(session, secondary_url)
+                    if data and isinstance(data, dict):
+                        price = float(data.get("solana", {}).get("usd", 0)) or None
+
+                if price and price > 0:
+                    if g_last_known_sol_price != price:
+                        print(f"🔄 SOL/USD updated ({source_used}): {price:.2f} USD (was {g_last_known_sol_price:.2f} USD)")
+                        g_last_known_sol_price = price
+                else:
+                    print(f"⚠️ Could not refresh SOL/USD price from either source, keeping last known: {g_last_known_sol_price:.2f} USD")
+
+                await asyncio.sleep(SOL_PRICE_UPDATE_INTERVAL_SECONDS)
+
+            except asyncio.CancelledError:
+                print("🔄 SOL/USD price updater task cancelled.")
+                raise
+            except Exception as e:
+                print(f"❌ Unexpected error in SOL/USD price updater: {e}. Retrying in {SOL_PRICE_UPDATE_INTERVAL_SECONDS}s")
+                await asyncio.sleep(SOL_PRICE_UPDATE_INTERVAL_SECONDS)
 
 # --- Dexscreener Fallback Data Fetch ---
 def get_dexscreener_data(token_address: str):
-    url = f"https://api.dexscreener.com/token-pairs/v1/solana/{token_address}"
-    try:
-        res = requests.get(url, timeout=10)
-        res.raise_for_status() 
-        data = res.json()
-        
-        if isinstance(data, dict):
-            pairs = data.get("pairs")
-        elif isinstance(data, list):
-            pairs = data  # Assume the list itself contains the pair objects
-        else:
-            print(f"ERROR: Dexscreener returned unexpected data type for {token_address}: {type(data)}")
-            return None
-        if not pairs:
-            # print(f"⚠️ No pairs found for token {token_address} on DexScreener.") # Can be noisy
-            return None
+    """Fetch token price & volume info from Dexscreener.
 
-        for pair_data in pairs:
-            try:
-                if not (pair_data.get("txns") and pair_data["txns"].get("h1") and \
-                        pair_data.get("volume") and pair_data["volume"].get("h1") and \
-                        pair_data.get("priceUsd")):
+    It first tries the legacy token-pairs endpoint and, if that fails or returns
+    no useful data, falls back to the newer `latest/dex/tokens` endpoint.
+    Returns dict with keys: price, buy_volume, sell_volume, buys, sells or None
+    on failure.
+    """
+    endpoints = [
+        # Legacy (sometimes still works for Solana)
+        f"https://api.dexscreener.com/token-pairs/v1/solana/{token_address}",
+        # Newer universal endpoint
+        f"https://api.dexscreener.com/latest/dex/tokens/{token_address}",
+    ]
+
+    for idx, url in enumerate(endpoints, 1):
+        try:
+            res = requests.get(url, timeout=10)
+            if res.status_code == 404:
+                continue  # Not found on this endpoint, try next
+            res.raise_for_status()
+            data = res.json()
+
+            # Normalise to list of pairs
+            if isinstance(data, dict):
+                pairs = data.get("pairs") or []
+            elif isinstance(data, list):
+                pairs = data
+            else:
+                print(f"Dexscreener endpoint {idx} returned unexpected type {type(data)} for {token_address}")
+                continue
+
+            if not pairs:
+                continue  # No pools here, try next endpoint
+
+            for pair_data in pairs:
+                try:
+                    if not (pair_data.get("txns") and pair_data["txns"].get("h1") and \
+                            pair_data.get("volume") and pair_data["volume"].get("h1") and \
+                            pair_data.get("priceUsd")):
+                        continue
+
+                    buy_txns = int(pair_data["txns"]["h1"].get("buys", 0))
+                    sell_txns = int(pair_data["txns"]["h1"].get("sells", 0))
+                    total_hourly_volume_usd = float(pair_data["volume"]["h1"])
+                    total_txns = buy_txns + sell_txns
+
+                    buy_volume_estimation = sell_volume_estimation = 0.0
+                    if total_txns > 0:
+                        buy_share = buy_txns / total_txns
+                        sell_share = sell_txns / total_txns
+                        buy_volume_estimation = total_hourly_volume_usd * buy_share
+                        sell_volume_estimation = total_hourly_volume_usd * sell_share
+
+                    return {
+                        "price": float(pair_data["priceUsd"]),
+                        "buy_volume": buy_volume_estimation,
+                        "sell_volume": sell_volume_estimation,
+                        "buys": buy_txns,
+                        "sells": sell_txns,
+                    }
+                except (KeyError, ValueError, TypeError):
                     continue
 
-                buy_txns = int(pair_data["txns"]["h1"]["buys"])
-                sell_txns = int(pair_data["txns"]["h1"]["sells"])
-                
-                total_hourly_volume_usd = float(pair_data["volume"]["h1"])
-                total_txns = buy_txns + sell_txns
+            # If we got here, endpoint had pairs but none usable
+        except requests.RequestException as e_req:
+            print(f"❌ Dexscreener request error (endpoint {idx}) for {token_address}: {e_req}")
+        except json.JSONDecodeError:
+            print(f"❌ Dexscreener response not valid JSON (endpoint {idx}) for {token_address}.")
+        except Exception as e:
+            print(f"❌ Unexpected Dexscreener error (endpoint {idx}) for {token_address}: {e}")
 
-                buy_volume_estimation = 0
-                sell_volume_estimation = 0
-                if total_txns > 0:
-                    buy_share = buy_txns / total_txns
-                    sell_share = sell_txns / total_txns
-                    buy_volume_estimation = total_hourly_volume_usd * buy_share
-                    sell_volume_estimation = total_hourly_volume_usd * sell_share
-                
-                return {
-                    "price": float(pair_data["priceUsd"]),
-                    "buy_volume": buy_volume_estimation,
-                    "sell_volume": sell_volume_estimation,
-                    "buys": buy_txns,
-                    "sells": sell_txns
-                }
-            except (KeyError, ValueError, TypeError):
-                continue 
-
-        # print(f"⚠️ No usable pools with required data found for {token_address} on DexScreener after checking {len(pairs)} pairs.") # Can be noisy
-        return None
-
-    except requests.exceptions.HTTPError as e_http:
-        # print(f"❌ Dexscreener API HTTP error for {token_address}: {e_http}") # Can be noisy
-        return None
-    except requests.exceptions.RequestException as e_req:
-        print(f"❌ Dexscreener API request error for {token_address}: {e_req}")
-        return None
-    except json.JSONDecodeError:
-        print(f"❌ Dexscreener API response was not valid JSON for {token_address}.")
-        return None
-    except Exception as e: 
-        print(f"❌ Unexpected error fetching Dexscreener data for {token_address}: {e}")
-        return None
+    # None of the endpoints produced usable data
+    return None
 
 # --- WebSocket Listener ---
 async def listen_for_trades(mint_address_to_monitor):
@@ -309,11 +429,12 @@ async def listen_for_trades(mint_address_to_monitor):
 # --- Trade Logic ---
 async def trade_logic_and_price_display_loop():
     global g_baseline_price_usd, g_trade_status, g_buy_price_usd, g_token_name, g_current_mint_address, \
-           g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start
+           g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start, g_last_dex_price_fetch_time
 
     current_task_token_name = g_token_name
     current_task_mint_address = g_current_mint_address
     print(f"📈 Starting trade logic for {current_task_token_name or current_task_mint_address}")
+
 
     try:
         while True:
@@ -323,7 +444,9 @@ async def trade_logic_and_price_display_loop():
 
             current_time = time.time()
             usd_price_per_token = None
-
+            
+            # --------------- Price Determination ---------------
+            # 1) Preferred: price from the most recent trade (if any)
             if g_latest_trade_data:
                 recent_trade = g_latest_trade_data[-1]
                 token_amount = recent_trade["amount"]
@@ -331,6 +454,14 @@ async def trade_logic_and_price_display_loop():
                 if token_amount > 0:
                     sol_price_per_token = sol_amount / token_amount
                     usd_price_per_token = sol_price_per_token * g_last_known_sol_price
+
+            # 2) Fallback: query Dexscreener if we still have no price and enough time passed
+            if usd_price_per_token is None and (current_time - g_last_dex_price_fetch_time) > DEXSCREENER_PRICE_UPDATE_INTERVAL_SECONDS:
+                loop = asyncio.get_running_loop()
+                dex_data = await loop.run_in_executor(None, get_dexscreener_data, current_task_mint_address)
+                if dex_data and dex_data.get("price"):
+                    usd_price_per_token = float(dex_data["price"])
+                g_last_dex_price_fetch_time = current_time
 
             # --- Initial Baseline Price Setting ---
             if usd_price_per_token is not None and g_baseline_price_usd is None:
@@ -348,17 +479,31 @@ async def trade_logic_and_price_display_loop():
                         print(f"🚨 BUY SIGNAL DETECTED for {current_task_token_name} at {g_buy_price_usd:.9f} USD (Baseline: {g_baseline_price_usd:.9f} USD)")
                     elif (current_time - g_token_start_time) > NO_BUY_SIGNAL_TIMEOUT_SECONDS:
                         print(f"⏳ NO BUY SIGNAL timeout for {current_task_token_name} after {NO_BUY_SIGNAL_TIMEOUT_SECONDS}s. Baseline: {g_baseline_price_usd:.9f} USD.")
-                        raise TokenProcessingComplete(current_task_mint_address, "No buy signal timeout")
+                        raise TokenProcessingComplete(
+                            current_task_mint_address, 
+                            "No buy signal timeout",
+                            sell_price=usd_price_per_token
+                        )
 
                 # 2. Take Profit / Stop Loss Checks (only if buy signal was detected)
                 if g_buy_signal_detected and g_buy_price_usd is not None and usd_price_per_token is not None:
                     if usd_price_per_token >= g_buy_price_usd * TAKE_PROFIT_THRESHOLD_PERCENT:
                         print(f"✅ TAKE PROFIT for {current_task_token_name} at {usd_price_per_token:.9f} USD (Target: {g_buy_price_usd * TAKE_PROFIT_THRESHOLD_PERCENT:.9f}, Buy: {g_buy_price_usd:.9f} USD)")
-                        raise TokenProcessingComplete(current_task_mint_address, "Take profit")
+                        raise TokenProcessingComplete(
+                            current_task_mint_address, 
+                            "Take profit",
+                            buy_price=g_buy_price_usd,
+                            sell_price=usd_price_per_token
+                        )
                     
                     if usd_price_per_token <= g_buy_price_usd * STOP_LOSS_THRESHOLD_PERCENT:
                         print(f"🛑 STOP LOSS for {current_task_token_name} at {usd_price_per_token:.9f} USD (Target: {g_buy_price_usd * STOP_LOSS_THRESHOLD_PERCENT:.9f}, Buy: {g_buy_price_usd:.9f} USD)")
-                        raise TokenProcessingComplete(current_task_mint_address, "Stop loss")
+                        raise TokenProcessingComplete(
+                            current_task_mint_address, 
+                            "Stop loss",
+                            buy_price=g_buy_price_usd,
+                            sell_price=usd_price_per_token
+                        )
 
                 # 3. Stagnation Check (applies whether buy signal occurred or not, based on baseline)
                 if usd_price_per_token is not None:
@@ -368,20 +513,31 @@ async def trade_logic_and_price_display_loop():
                             print(f"📉 Price for {current_task_token_name} ({usd_price_per_token:.9f}) fell below stagnation threshold ({g_baseline_price_usd * STAGNATION_PRICE_THRESHOLD_PERCENT:.9f}). Stagnation timer started.")
                         elif (current_time - g_stagnation_timer_start) > STAGNATION_TIMEOUT_SECONDS:
                             print(f"⏳ STAGNATION TIMEOUT for {current_task_token_name}. Price ({usd_price_per_token:.9f}) remained below {g_baseline_price_usd * STAGNATION_PRICE_THRESHOLD_PERCENT:.9f} for {STAGNATION_TIMEOUT_SECONDS}s.")
-                            raise TokenProcessingComplete(current_task_mint_address, "Stagnation timeout")
+                            raise TokenProcessingComplete(
+                                current_task_mint_address, 
+                                "Stagnation timeout",
+                                sell_price=usd_price_per_token
+                            )
                     else: # Price is above stagnation threshold
                         if g_stagnation_timer_start is not None:
                             print(f"📈 Price for {current_task_token_name} ({usd_price_per_token:.9f}) recovered above stagnation threshold. Resetting stagnation timer.")
                             g_stagnation_timer_start = None # Reset timer if price recovers
                 elif g_stagnation_timer_start is None and (current_time - g_token_start_time) > STAGNATION_TIMEOUT_SECONDS: # No price data at all for stagnation period
                      print(f"⏳ STAGNATION TIMEOUT for {current_task_token_name} due to no price data for {STAGNATION_TIMEOUT_SECONDS}s while monitoring baseline {g_baseline_price_usd:.9f}.")
-                     raise TokenProcessingComplete(current_task_mint_address, "Stagnation timeout - no price data")
+                     raise TokenProcessingComplete(
+                         current_task_mint_address, 
+                         "Stagnation timeout - no price data"
+                     )
 
             # Display current status (can be made more concise or less frequent)
             if usd_price_per_token is not None:
-                status_msg = f"Status for {current_task_token_name}: Price={usd_price_per_token:.9f} USD, Baseline={g_baseline_price_usd:.9f} USD, BuySignal={g_buy_signal_detected}"
-                if g_buy_price_usd: status_msg += f", BuyPrice={g_buy_price_usd:.9f} USD"
-                # print(status_msg) # This can be very verbose
+                status_msg = (f"[{time.strftime('%H:%M:%S')}] Status for {current_task_token_name}: "
+                              f"Price={usd_price_per_token:.9f} USD, "
+                              f"Baseline={g_baseline_price_usd:.9f} USD, "
+                              f"BuySignal={g_buy_signal_detected}")
+                if g_buy_price_usd:
+                    status_msg += f", BuyPrice={g_buy_price_usd:.9f} USD"
+                print(status_msg)
             elif g_baseline_price_usd is None:
                 # print(f"Waiting for first trade data for {current_task_token_name} to set baseline...")
                 pass

@@ -178,21 +178,28 @@ def sanitize_name(name, fallback_name=None):
     if not sanitized: sanitized = ''.join(ch for ch in name_str if ch.isalnum() or ch in ' _-()[]{}<>')
     return sanitized[:30].strip() or (fallback_name or 'Unknown')
 
+def load_existing_tokens(csv_filepath):
+    """Load existing token addresses from CSV file"""
+    existing_tokens = set()
+    if os.path.exists(csv_filepath):
+        try:
+            with open(csv_filepath, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get('Address'):
+                        existing_tokens.add(row['Address'].strip())
+        except Exception as e:
+            logging.error(f"Error reading existing tokens from {csv_filepath}: {e}")
+    return existing_tokens
+
 def process_window(win_minutes, prelim_tokens, script_dir_path):
     sleep_seconds = win_minutes * 60
     abs_csv_filepath = os.path.join(script_dir_path, f"sniperx_results_{win_minutes}m.csv")
     
     # Load existing tokens to avoid duplicates
-    existing_tokens = set()
-    if os.path.exists(abs_csv_filepath):
-        try:
-            with open(abs_csv_filepath, 'r', newline='', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row.get('Address'):
-                        existing_tokens.add(row['Address'])
-        except Exception as e:
-            logging.error(f"Error reading existing tokens from {abs_csv_filepath}: {e}")
+    existing_tokens = load_existing_tokens(abs_csv_filepath)
+    # Create a backup of the existing tokens to track new additions in this run
+    existing_tokens_at_start = set(existing_tokens)
 
     logging.info(f"=== Running filters for {win_minutes}m window ({sleep_seconds}s) ===")
     token_addresses = [t.get('tokenAddress') for t in prelim_tokens if t.get('tokenAddress')]
@@ -229,28 +236,61 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
             
     final_results_for_csv = snipe_candidates + [t for t in ghost_buyer_candidates if t not in snipe_candidates]
     
+    # Filter out tokens that were already in the file at the start
+    new_tokens = [t for t in final_results_for_csv 
+                 if t.get('tokenAddress') and t['tokenAddress'] not in existing_tokens_at_start]
+    
+    if not new_tokens:
+        logging.info(f"No new tokens to add to {abs_csv_filepath}")
+        return {'whale': [], 'snipe': [], 'ghost': []}
+    
+    # Write header if file doesn't exist
+    write_header = not os.path.exists(abs_csv_filepath)
+    
     try:
-        with open(abs_csv_filepath, 'a', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['Address','Name','Price USD',f'Liquidity({win_minutes}m)',f'Volume({win_minutes}m)',f'{win_minutes}m Change','Open Chart','Snipe','Ghost Buyer']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        with open(abs_csv_filepath, 'a' if os.path.exists(abs_csv_filepath) else 'w', 
+                 newline='', encoding='utf-8') as csvfile:
             
-            for t_data in final_results_for_csv:
-                addr = t_data.get('tokenAddress','N/A')
-                if addr in existing_tokens:
-                    logging.info(f"Skipping duplicate token {addr} in {win_minutes}m window")
+            fieldnames = ['Address','Name','Price USD',f'Liquidity({win_minutes}m)',
+                        f'Volume({win_minutes}m)',f'{win_minutes}m Change',
+                        'Open Chart','Snipe','Ghost Buyer']
+            
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            if write_header:
+                writer.writeheader()
+            
+            rows_added = 0
+            for t_data in new_tokens:
+                addr = t_data.get('tokenAddress')
+                if not addr or addr in existing_tokens:
                     continue
                     
-                p1,l1,v1 = first_snaps.get(addr,(0,0,0)); p2,l2,v2 = second_snaps.get(addr,(0,0,0))
+                p1, l1, v1 = first_snaps.get(addr, (0, 0, 0))
+                p2, l2, v2 = second_snaps.get(addr, (0, 0, 0))
+                
                 writer.writerow({
-                    'Address': addr, 'Name': sanitize_name(t_data.get('name'),t_data.get('symbol')),
-                    'Price USD': f"{p2:.8f}", f'Liquidity({win_minutes}m)': f"{l2:.2f}",
-                    f'Volume({win_minutes}m)': f"{max(0,v2-v1):.2f}", f'{win_minutes}m Change': f"{((p2/p1-1)*100 if p1 else 0):.2f}",
-                    'Open Chart': f'=HYPERLINK("https://dexscreener.com/{DEXSCREENER_CHAIN_ID}/{addr}","Open Chart")',
-                    'Snipe': 'Yes' if t_data in snipe_candidates else '', 'Ghost Buyer': 'Yes' if t_data in ghost_buyer_candidates else ''
+                    'Address': addr, 
+                    'Name': sanitize_name(t_data.get('name'), t_data.get('symbol')),
+                    'Price USD': f"{p2:.8f}", 
+                    f'Liquidity({win_minutes}m)': f"{l2:.2f}",
+                    f'Volume({win_minutes}m)': f"{max(0, v2-v1):.2f}", 
+                    f'{win_minutes}m Change': f"{((p2/p1-1)*100 if p1 else 0):.2f}",
+                    'Open Chart': f'=HYPERLINK(\"https://dexscreener.com/{DEXSCREENER_CHAIN_ID}/{addr}\",\"Open Chart\")',
+                    'Snipe': 'Yes' if t_data in snipe_candidates else '', 
+                    'Ghost Buyer': 'Yes' if t_data in ghost_buyer_candidates else ''
                 })
-                existing_tokens.add(addr)  # Add to set after writing
-        logging.info(f"Appended {len(final_results_for_csv)} rows to {abs_csv_filepath}")
-    except IOError as e: logging.error(f"Could not write to {abs_csv_filepath}: {e}")
+                existing_tokens.add(addr)
+                rows_added += 1
+                
+        if rows_added > 0:
+            logging.info(f"Successfully added {rows_added} new tokens to {abs_csv_filepath}")
+        else:
+            logging.info("No new tokens were added to the CSV file")
+            
+    except IOError as e: 
+        logging.error(f"Error writing to {abs_csv_filepath}: {e}")
+    except Exception as e:
+        logging.error(f"Unexpected error in process_window: {e}")
     return {'whale': passed_whale_trap, 'snipe': snipe_candidates, 'ghost': ghost_buyer_candidates}
 
 def initialize_all_files_once(script_dir_path):

@@ -287,8 +287,8 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
             for button_element_candidate in visible_buttons:
                 try:
                     # Extract rank and address from the candidate button
-                    rank_text_candidate = button_element_candidate.find_element(By.XPATH, ".//p[contains(@class,'css-1dcxne9')]").text.strip().replace("#","")
-                    addr_text_candidate = button_element_candidate.find_element(By.XPATH, ".//p[contains(@class,'css-41h84y')]").text.strip()
+                    rank_text_candidate = button_element_candidate.find_element(By.XPATH, ".//span[starts-with(normalize-space(), '#')]").text.strip().replace('#', '')
+                    addr_text_candidate = button_element_candidate.find_element(By.XPATH, ".//p[@aria-label]").text.strip()
 
                     if rank_text_candidate == rank_to_find_str and addr_text_candidate == address_to_find:
                         target_button_element = button_element_candidate
@@ -318,7 +318,7 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
                 extracted_supply_value = 'N/A'
                 try:
                     # XPath for the "Cluster Supply: X.XX%" text, assuming it appears after click
-                    supply_el_xpath = "//p[contains(@class,'css-1uamorv') and starts-with(normalize-space(),'Cluster Supply:')][1]"
+                    supply_el_xpath = "//p[starts-with(normalize-space(),'Cluster Supply:')][1]"
                     supply_el = WebDriverWait(driver,15).until(EC.visibility_of_element_located((By.XPATH,supply_el_xpath)))
 
                     match = re.search(r"Cluster Supply:\s*([\d\.]+)\s*%", supply_el.text.strip())

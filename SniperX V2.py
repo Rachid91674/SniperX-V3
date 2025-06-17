@@ -2,6 +2,8 @@
 
 import os
 import requests
+import asyncio
+import aiohttp
 import datetime # Added for marker file timestamp
 import dateparser
 import csv      # Added for CSV writing
@@ -122,14 +124,24 @@ def filter_preliminary(tokens):
     logging.info(f"{len(filtered)} tokens passed preliminary filters.")
     return filtered
 
-def fetch_token_data(token_address):
+async def fetch_token_data(session, token_address):
     url = f"https://api.dexscreener.com/tokens/v1/{DEXSCREENER_CHAIN_ID}/{token_address}"
     try:
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("pairs") if isinstance(data, dict) else data if isinstance(data, list) else None
-    except Exception: return None
+        async with session.get(url, timeout=10) as resp:
+            resp.raise_for_status()
+            data = await resp.json()
+            return data.get("pairs") if isinstance(data, dict) else data if isinstance(data, list) else None
+    except Exception:
+        return None
+
+async def fetch_all_token_data(token_addresses):
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch_token_data(session, addr) for addr in token_addresses]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+    data_map = {}
+    for addr, res in zip(token_addresses, results):
+        data_map[addr] = res if not isinstance(res, Exception) else None
+    return data_map
 
 def get_token_metrics(token_pair_data_list):
     if not token_pair_data_list or not isinstance(token_pair_data_list, list): return 0.0, 0.0, 0.0
@@ -205,10 +217,12 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
     token_addresses = [t.get('tokenAddress') for t in prelim_tokens if t.get('tokenAddress')]
     if not token_addresses: return {'whale': [], 'snipe': [], 'ghost': []}
     
-    first_snaps = {addr: get_token_metrics(fetch_token_data(addr)) for addr in token_addresses}
+    first_data = asyncio.run(fetch_all_token_data(token_addresses))
+    first_snaps = {addr: get_token_metrics(first_data.get(addr)) for addr in token_addresses}
     logging.info(f"Captured t0 for {len(first_snaps)} tokens in {win_minutes}m window. Waiting {sleep_seconds}s...")
     time.sleep(sleep_seconds)
-    second_snaps = {addr: get_token_metrics(fetch_token_data(addr)) for addr in token_addresses}
+    second_data = asyncio.run(fetch_all_token_data(token_addresses))
+    second_snaps = {addr: get_token_metrics(second_data.get(addr)) for addr in token_addresses}
     logging.info(f"Captured t1 for {len(second_snaps)} tokens in {win_minutes}m window.")
     
     passed_whale_trap = apply_whale_trap(prelim_tokens, first_snaps, second_snaps)

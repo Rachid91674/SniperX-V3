@@ -3,6 +3,8 @@
 Bubblemaps Extractor - Multi-Threaded (Multiple Windows)
 """
 import sys
+import pytest
+pytest.importorskip("selenium")
 import csv
 import os
 import re

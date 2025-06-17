@@ -190,9 +190,15 @@ def extract_initial_address_list_data(driver) -> list:
                 logging.debug(f"[{threading.get_ident()}] All {TARGET_MAX_RANK_EXTRACTION} target ranks collected."); break
             try:
                 btn = item_container.find_element(By.XPATH, ".//div[contains(@class, 'MuiListItemButton-root')]")
-                rank_el = btn.find_element(By.XPATH, ".//p[contains(@class, 'css-1dcxne9')]")
-                addr_el = btn.find_element(By.XPATH, ".//p[contains(@class, 'css-41h84y')]")
-                perc_el = btn.find_element(By.XPATH, ".//div[contains(@class, 'css-1a7asof')]//span[contains(@class, 'css-yvjvm2')]")
+
+                # The Bubblemaps site frequently changes its CSS classes. Instead
+                # of relying on those volatile class names, locate elements using
+                # stable patterns in the DOM structure. The rank always starts
+                # with a '#' character, the address has an 'aria-label' attribute
+                # and the percentage contains a '%' sign.
+                rank_el = btn.find_element(By.XPATH, ".//span[starts-with(normalize-space(), '#')]")
+                addr_el = btn.find_element(By.XPATH, ".//p[@aria-label]")
+                perc_el = btn.find_element(By.XPATH, ".//span[contains(text(), '%')]")
                 mui_box = None
                 try: mui_box = btn.find_element(By.XPATH, "./div[contains(@class, 'MuiBox-root') and not(contains(@class, 'MuiCircularProgress-root'))][1]")
                 except NoSuchElementException:

@@ -22,6 +22,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_TOKENS_CSV = os.path.join(SCRIPT_DIR, "sniperx_results_1m.csv")
 CLUSTER_SUMMARY_CSV = os.path.join(SCRIPT_DIR, "cluster_summaries.csv")
 OUTPUT_RISK_ANALYSIS_CSV = os.path.join(SCRIPT_DIR, "token_risk_analysis.csv")
+FILTERED_TOKENS_WITH_ALL_RISKS_CSV = os.path.join(
+    SCRIPT_DIR, "filtered_tokens_with_all_risks.csv"
+)
 
 # --- Helper Functions ---
 def get_primary_pool_data_from_dexscreener(token_address, chain_id="solana"):
@@ -289,9 +292,20 @@ def run_full_risk_analysis():
                 writer = csv.DictWriter(f, fieldnames=output_headers)
                 writer.writeheader()
                 writer.writerows(results_to_write)
-            logging.info(f"Successfully wrote {len(results_to_write)} processed token entries to {OUTPUT_RISK_ANALYSIS_CSV}")
+
+            with open(FILTERED_TOKENS_WITH_ALL_RISKS_CSV, 'w', newline='', encoding='utf-8') as f_filtered:
+                filtered_writer = csv.DictWriter(f_filtered, fieldnames=output_headers)
+                filtered_writer.writeheader()
+                filtered_writer.writerows(results_to_write)
+
+            logging.info(
+                f"Successfully wrote {len(results_to_write)} processed token entries to {OUTPUT_RISK_ANALYSIS_CSV} and {FILTERED_TOKENS_WITH_ALL_RISKS_CSV}"
+            )
         except Exception as e:
-            logging.error(f"Error writing risk analysis to {OUTPUT_RISK_ANALYSIS_CSV}: {e}", exc_info=True)
+            logging.error(
+                f"Error writing risk analysis to {OUTPUT_RISK_ANALYSIS_CSV} or {FILTERED_TOKENS_WITH_ALL_RISKS_CSV}: {e}",
+                exc_info=True,
+            )
     else:
         logging.info("No token data processed to write.")
 

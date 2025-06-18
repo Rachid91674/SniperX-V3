@@ -151,6 +151,25 @@ def initialize_driver(chrome_binary_path: str, driver_path: str | None = None) -
     except WebDriverException as e: logging.error(f"WebDriverException on init: {e}"); return None
     except Exception as e: logging.error(f"Unexpected error on WebDriver init: {e}"); return None
 
+def click_element_with_fallback(driver, element, timeout: int = 10, max_attempts: int = 2, log_prefix: str = "") -> bool:
+    """Attempt to click an element, falling back to JS if needed."""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(element))
+            element.click()
+            return True
+        except Exception as click_exc:
+            logging.debug(f"{log_prefix} standard click failed on attempt {attempt}: {click_exc}")
+            try:
+                driver.execute_script("arguments[0].click();", element)
+                logging.debug(f"{log_prefix} JS click succeeded on attempt {attempt}")
+                return True
+            except Exception as js_exc:
+                logging.debug(f"{log_prefix} JS click failed on attempt {attempt}: {js_exc}")
+        time.sleep(0.5)
+    logging.error(f"{log_prefix} Failed to click element after {max_attempts} attempts.")
+    return False
+
 def ensure_address_list_panel_open(driver):
     """Ensure the Address List panel is expanded."""
     try:
@@ -314,7 +333,7 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
                 driver.execute_script("arguments[0].scrollIntoView({block:'center', behavior: 'smooth'});", target_button_element)
                 time.sleep(0.7) # Wait for scroll to complete
 
-                WebDriverWait(driver,10).until(EC.element_to_be_clickable(target_button_element)).click()
+                click_element_with_fallback(driver, target_button_element, timeout=10, max_attempts=3, log_prefix=f"[{thread_id_str}] Cluster Item")
                 logging.info(f"[{thread_id_str}] Clicked on cluster item: Rank #{rank_to_find_str} ({address_to_find}).")
 
                 extracted_supply_value = 'N/A'
@@ -508,7 +527,7 @@ def process_single_token_threaded(token_address_with_config: tuple):
                         )
                         thread_driver.execute_script("arguments[0].scrollIntoView(true);", refresh_icon)
                         time.sleep(0.5)
-                        refresh_icon.click()
+                        click_element_with_fallback(thread_driver, refresh_icon, timeout=5, max_attempts=3, log_prefix=f"[{thread_id_str}] Refresh")
                         logging.info(f"[{thread_id_str}] Clicked in-page refresh (Attempt {attempt + 1}).")
                         refresh_icon_found_and_clicked = True
                     except TimeoutException:
@@ -581,7 +600,7 @@ def process_single_token_threaded(token_address_with_config: tuple):
                         logging.info(f"[{thread_id_str}] 'Show Contract' not checked. Clicking (Attempt {attempt + 1}).")
                         thread_driver.execute_script("arguments[0].scrollIntoView({block:'center'});", clickable_element_for_visibility)
                         time.sleep(0.5)
-                        WebDriverWait(thread_driver, 5).until(EC.element_to_be_clickable(clickable_element_for_visibility)).click()
+                        click_element_with_fallback(thread_driver, clickable_element_for_visibility, timeout=5, max_attempts=3, log_prefix=f"[{thread_id_str}] Show Contract")
                         time.sleep(random.uniform(2,3)) # Wait for UI update
                         # Re-check state
                         checkbox_input_element = WebDriverWait(thread_driver, 5).until(EC.presence_of_element_located((By.ID, cb_id)))

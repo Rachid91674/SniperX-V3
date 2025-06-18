@@ -378,6 +378,20 @@ def save_address_data_txt(token_address, augmented_address_data, directory):
                 f.write(f"{entry.get('Rank','N/A')}\t{entry.get('Address','N/A')}\t{entry.get('Individual_Percentage','N/A')}\t{entry.get('MuiBox_Class_String','N/A')}\t{entry.get('Cluster_Supply_Percentage','N/A')}\n")
     except IOError as e: logging.error(f"IOError saving to {filepath}: {e}")
 
+def cleanup_token_data(token_address: str):
+    """Remove the saved bubblemaps text file for a token if it exists."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    target_dir = os.path.join(script_dir, EXTRACTED_DATA_DIR)
+    filepath = os.path.join(target_dir, f"bubblemaps_data_{token_address}.txt")
+    try:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            logging.info(f"Deleted token data file {filepath}")
+        else:
+            logging.debug(f"Token data file not found for cleanup: {filepath}")
+    except Exception as e:
+        logging.error(f"Error deleting token data file {filepath}: {e}")
+
 # --- MODIFIED FUNCTION ---
 def save_cluster_summary_data(token_address: str, processed_cluster_data: dict): # Renamed arg
     # This function must be called with CLUSTER_SUMMARY_LOCK acquired
@@ -689,13 +703,13 @@ def run_risk_detector_once():
     risk_detector_script = os.path.join(script_dir, "risk_detector.py")
     if not os.path.exists(risk_detector_script):
         logging.error(f"risk_detector.py not found at {risk_detector_script}.")
-        return
+        return False
     try:
         # Check if input files exist
         cluster_summary_path = os.path.join(script_dir, CLUSTER_SUMMARY_FILE)
         if not os.path.exists(cluster_summary_path):
             logging.error(f"Cluster summary file not found at {cluster_summary_path}")
-            return
+            return False
 
         # Run risk detector with full path to Python executable
         proc = subprocess.run(
@@ -715,18 +729,23 @@ def run_risk_detector_once():
             logging.info(f"Risk detector output file created at {output_file}")
         else:
             logging.error(f"Risk detector output file not created at {output_file}")
+        return True
     except subprocess.CalledProcessError as e:
         logging.error(f"Risk detector failed with exit code {e.returncode}")
-        if e.stdout: logging.error(f"STDOUT: {e.stdout}")
-        if e.stderr: logging.error(f"STDERR: {e.stderr}")
+        if e.stdout:
+            logging.error(f"STDOUT: {e.stdout}")
+        if e.stderr:
+            logging.error(f"STDERR: {e.stderr}")
     except Exception as e:
         logging.error(f"Error running risk_detector.py: {e}", exc_info=True)
+    return False
 
 def monitor_and_process_tokens(csv_fpath: str, chrome_bin_path: str, chrome_drv_path: str | None):
     processed_set = load_processed_tokens_threadsafe(OPENED_TOKENS_FILE)
     in_flight = set()
     newly_processed_count = 0
     last_file_size = 0
+    processed_since_last_run: set[str] = set()
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="BubbleWorker") as executor:
@@ -745,13 +764,18 @@ def monitor_and_process_tokens(csv_fpath: str, chrome_bin_path: str, chrome_drv_
                                 processed_set.add(token_addr)
                             logging.info(f"Bubblemaps SUCCESS for {token_addr}.")
                             newly_processed_count += 1
+                            processed_since_last_run.add(token_addr)
                             processed_this_cycle = True
                         else: logging.error(f"Bubblemaps FAILED for {token_addr}.")
                     except Exception as exc: logging.error(f"Token {token_addr} thread exception: {exc}")
 
                 if newly_processed_count > 0 and not active_futures:
                     logging.info(f"{newly_processed_count} tokens updated. Triggering risk_detector.py.")
-                    run_risk_detector_once()
+                    detector_success = run_risk_detector_once()
+                    if detector_success:
+                        for addr in processed_since_last_run:
+                            cleanup_token_data(addr)
+                        processed_since_last_run.clear()
                     newly_processed_count = 0
 
                 # Check if file has been modified

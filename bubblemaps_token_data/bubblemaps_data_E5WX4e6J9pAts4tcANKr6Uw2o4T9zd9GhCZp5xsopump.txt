@@ -1,0 +1,11 @@
+Rank	Address	Individual_Percentage	MuiBox_Class	Cluster_Supply_Percentage
+1	PumpSwap (GENIUS Act-SOL)	31.73	MuiBox-root css-1fk5ysy	51.95
+2	HwiUcN...UJLH	3.61	MuiBox-root css-1fk5ysy	51.95
+3	9KeLdk...ZuCi	3.61	MuiBox-root css-141d73e	0
+4	8FdTvp...J7ZZ	3.20	MuiBox-root css-141d73e	0
+5	EsP97h...Ecp4	3.01	MuiBox-root css-141d73e	0
+6	pump.fun Creator (BaTE)	2.87	MuiBox-root css-141d73e	0
+7	DaEVwq...orU1	2.76	MuiBox-root css-141d73e	0
+8	EaD64K...PQnq	2.05	MuiBox-root css-1fk5ysy	51.95
+9	pump.fun Creator (9vev)	1.79	MuiBox-root css-141d73e	0
+10	7T2LKr...3WrM	1.73	MuiBox-root css-141d73e	0

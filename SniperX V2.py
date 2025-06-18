@@ -526,17 +526,17 @@ if __name__ == "__main__":
         if monitoring_process: monitoring_process.terminate()
         sys.exit(1)
         
-    run_interval_seconds = max(WINDOW_MINS) * 60
-    
     monitoring_lock_file_path = os.path.join(SCRIPT_DIRECTORY, "monitoring_active.lock")
+    check_interval_seconds = 3  # Short pause between lock checks
     try:
         while True:
-            # Check for Monitoring.py lock file
-            while os.path.exists(monitoring_lock_file_path):
-                logging.info(f"Monitoring.py is active (lock file found: {monitoring_lock_file_path}). SniperX V2 pausing for 5 seconds...")
-                time.sleep(5)
-            
-            # Proceed with SniperX V2 cycle as Monitoring.py is not locked
+            if os.path.exists(monitoring_lock_file_path):
+                logging.info(
+                    f"Monitoring.py is active (lock file found: {monitoring_lock_file_path}). SniperX V2 pausing for {check_interval_seconds} seconds..."
+                )
+                time.sleep(check_interval_seconds)
+                continue
+
             logging.info(f"\n--- Starting new SniperX processing cycle at {datetime.datetime.now()} ---")
             
             aggregated_results = {}
@@ -565,8 +565,8 @@ if __name__ == "__main__":
                                     w.writerow([wm,cat_name,addr,name,url])
                 except Exception as e_rep: logging.error(f"Hourly report error: {e_rep}")
             
-            logging.info(f"Next SniperX cycle in ~{run_interval_seconds/60:.1f}m...")
-            time.sleep(run_interval_seconds)
+            logging.info(f"Rechecking monitoring lock in {check_interval_seconds}s...")
+            time.sleep(check_interval_seconds)
             
     except KeyboardInterrupt: 
         logging.info("\nKeyboardInterrupt. Shutting down SniperX V2...")

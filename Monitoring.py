@@ -131,8 +131,8 @@ class TokenProcessingComplete(Exception):
 TAKE_PROFIT_THRESHOLD_PERCENT = 1.10  # e.g., 10% profit
 STOP_LOSS_THRESHOLD_PERCENT = 0.95    # e.g., 5% loss
 STAGNATION_PRICE_THRESHOLD_PERCENT = 0.80 # e.g., price is 20% below baseline
-NO_BUY_SIGNAL_TIMEOUT_SECONDS = 60    # 1 minute
-STAGNATION_TIMEOUT_SECONDS = 60       # 1 minute
+NO_BUY_SIGNAL_TIMEOUT_SECONDS = 180   # 3 minutes
+STAGNATION_TIMEOUT_SECONDS = 180      # 3 minutes
 BUY_SIGNAL_PRICE_INCREASE_PERCENT = 1.01 # 1% increase from baseline to consider it a buy signal
 PRICE_IMPACT_THRESHOLD_MONITOR = 65.0  # Minimum price impact percentage to monitor
 

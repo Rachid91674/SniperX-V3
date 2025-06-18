@@ -4,6 +4,7 @@ import json
 import aiohttp
 import csv
 import os
+from pathlib import Path
 import requests
 import subprocess
 import sys
@@ -12,7 +13,15 @@ import time
 from datetime import datetime
 
 # --- Configuration ---
-INPUT_CSV_FILE = r"C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\token_risk_analysis.csv"
+# Path to the CSV file used for monitoring. The location can be overridden with
+# the `TOKEN_RISK_ANALYSIS_CSV` environment variable. When not set the
+# `token_risk_analysis.csv` file located in the same directory as this script is
+# used. This keeps the script portable across platforms.
+SCRIPT_DIR = Path(__file__).resolve().parent
+INPUT_CSV_FILE = os.environ.get(
+    "TOKEN_RISK_ANALYSIS_CSV",
+    str(SCRIPT_DIR / "token_risk_analysis.csv"),
+)
 SOL_PRICE_UPDATE_INTERVAL_SECONDS = 30
 TRADE_LOGIC_INTERVAL_SECONDS = 1
 CSV_CHECK_INTERVAL_SECONDS = 10  # How often to check the CSV for changes

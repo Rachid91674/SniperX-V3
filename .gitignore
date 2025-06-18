@@ -35,3 +35,12 @@ htmlcov/
 
 # OS files
 .DS_Store
+
+# Generated data
+*.csv
+*.log
+*.pid
+wallet_balance.json
+.sniperx_first_run_complete
+bubblemaps_token_data/
+!sample_data/*.csv

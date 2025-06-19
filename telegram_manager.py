@@ -151,9 +151,10 @@ async def status_command(update: Update, context: CallbackContext) -> None:
         return
     global sniperx_process
     if sniperx_process and sniperx_process.poll() is None:
-        status = "paused" if sniperx_process.poll() is None else "running"
+        # Corrected: if poll() is None, the process is running.
+        status_message = f"{SNIPERX_SCRIPT_NAME} is currently running (PID: {sniperx_process.pid})."
         if update.message:
-            await update.message.reply_text(f"{SNIPERX_SCRIPT_NAME} is currently {status} (PID: {sniperx_process.pid}).")
+            await update.message.reply_text(status_message)
     else:
         if update.message:
             await update.message.reply_text(f"{SNIPERX_SCRIPT_NAME} is not running.")

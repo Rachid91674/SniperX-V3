@@ -15,6 +15,8 @@ from pathlib import Path
 import concurrent.futures
 import threading
 import random
+import hashlib
+from collections import OrderedDict
 
 # Selenium imports
 from selenium import webdriver
@@ -104,6 +106,7 @@ def get_new_tokens_from_csv_threadsafe(csv_filepath: str, current_processed_toke
     if not os.path.exists(csv_filepath):
         logging.warning(f"Monitored CSV file {csv_filepath} not found.")
         return new_tokens
+    
     try:
         with open(csv_filepath, mode='r', newline='', encoding='utf-8') as f:
             # Read all lines to get the latest content
@@ -113,9 +116,10 @@ def get_new_tokens_from_csv_threadsafe(csv_filepath: str, current_processed_toke
 
             # Skip header if present
             start_idx = 1 if lines[0].strip().lower().startswith('address') else 0
+            processed_lines = set()
 
-            # Process each line
-            for line in lines[start_idx:]:
+            # Process lines in reverse order to get the most recent entries first
+            for line in reversed(lines[start_idx:]):
                 line = line.strip()
                 if not line:  # Skip empty lines
                     continue
@@ -126,12 +130,24 @@ def get_new_tokens_from_csv_threadsafe(csv_filepath: str, current_processed_toke
                 else:
                     token_address = line.strip()
 
+                # Skip if we've already processed this token in this batch
+                if token_address in processed_lines:
+                    continue
+                    
+                processed_lines.add(token_address)
+
                 if token_address and token_address not in current_processed_tokens:
                     new_tokens.append(token_address)
                     logging.info(f"Found new token to process: {token_address}")
+                    
+                    # Limit the number of new tokens to process in one batch
+                    if len(new_tokens) >= 10:  # Process max 10 new tokens at a time
+                        break
 
     except Exception as e:
-        logging.error(f"Error reading CSV file {csv_filepath}: {e}")
+        logging.error(f"Error reading CSV file {csv_filepath}: {e}", exc_info=True)
+    
+    logging.info(f"Found {len(new_tokens)} new tokens to process")
     return new_tokens
 
 def initialize_driver(chrome_binary_path: str, driver_path: str | None = None) -> webdriver.Chrome | None:
@@ -759,11 +775,64 @@ def run_risk_detector_once():
         logging.error(f"Error running risk_detector.py: {e}", exc_info=True)
     return False
 
+def clean_duplicate_entries(csv_path: str) -> None:
+    """Remove duplicate token entries from the CSV file."""
+    try:
+        if not os.path.exists(csv_path):
+            return
+            
+        # Read all lines and remove duplicates while preserving order
+        with open(csv_path, 'r', newline='', encoding='utf-8') as f:
+            lines = f.readlines()
+            
+        if not lines:
+            return
+            
+        header = lines[0] if lines[0].strip().lower().startswith('address') else None
+        seen = set()
+        unique_lines = []
+        
+        for line in lines[1:] if header else lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Extract token address (first column)
+            token = line.split(',')[0].strip()
+            if token and token not in seen:
+                seen.add(token)
+                unique_lines.append(line + '\n')
+        
+        # Only write back if we found duplicates
+        if len(unique_lines) < (len(lines) - (1 if header else 0)):
+            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                if header:
+                    f.write(header)
+                f.writelines(unique_lines)
+            logging.info(f"Removed {len(lines) - len(unique_lines) - (1 if header else 0)} duplicate entries from {csv_path}")
+            
+    except Exception as e:
+        logging.error(f"Error cleaning duplicate entries from {csv_path}: {e}")
+
+def get_file_checksum(file_path: str) -> str:
+    """Calculate MD5 checksum of a file to detect changes."""
+    if not os.path.exists(file_path):
+        return ""
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
 def monitor_and_process_tokens(csv_fpath: str, chrome_bin_path: str, chrome_drv_path: str | None):
+    # Clean up any duplicate entries in the CSV file first
+    clean_duplicate_entries(csv_fpath)
+    
     processed_set = load_processed_tokens_threadsafe(OPENED_TOKENS_FILE)
     in_flight = set()
     newly_processed_count = 0
-    last_file_size = 0
+    last_checksum = get_file_checksum(csv_fpath)
+    last_check_time = time.time()
     processed_since_last_run: set[str] = set()
 
     try:
@@ -797,11 +866,16 @@ def monitor_and_process_tokens(csv_fpath: str, chrome_bin_path: str, chrome_drv_
                         processed_since_last_run.clear()
                     newly_processed_count = 0
 
-                # Check if file has been modified
-                current_file_size = os.path.getsize(csv_fpath) if os.path.exists(csv_fpath) else 0
-                if current_file_size != last_file_size:
-                    logging.info(f"CSV file size changed from {last_file_size} to {current_file_size} bytes")
-                    last_file_size = current_file_size
+                # Check if file has been modified using checksum for better reliability
+                current_time = time.time()
+                if current_time - last_check_time >= 5:  # Check every 5 seconds
+                    current_checksum = get_file_checksum(csv_fpath)
+                    if current_checksum != last_checksum:
+                        logging.info("CSV file content changed, checking for new tokens")
+                        last_checksum = current_checksum
+                        # Clean up duplicates whenever we detect a change
+                        clean_duplicate_entries(csv_fpath)
+                    last_check_time = current_time
 
                 if len(active_futures) < MAX_WORKERS:
                     with PROCESSED_TOKENS_LOCK:

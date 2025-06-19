@@ -376,17 +376,19 @@ def initialize_all_files_once(script_dir_path):
     
     files_to_initialize = {
         results_file_1m_to_reset_name: ['Address','Name','Price USD','Liquidity(1m)','Volume(1m)','1m Change','Open Chart','Snipe','Ghost Buyer'],
-        "sniperx_results_5m.csv": ['Address','Name','Price USD','Liquidity(5m)','Volume(5m)','5m Change','Open Chart','Snipe','Ghost Buyer'],
-        "sniperx_prelim_filtered.csv": ['Address','Name','Price USD','Liquidity','Volume','Age (Minutes)','Created At','Open Chart'],
-        "sniperx_whale_trap_1m.csv": ['Address','Name','Price USD','Liquidity(1m)','Volume(1m)','1m Change','Open Chart'],
-        "sniperx_whale_trap_5m.csv": ['Address','Name','Price USD','Liquidity(5m)','Volume(5m)','5m Change','Open Chart'],
-        "sniperx_ghost_buyer_1m.csv": ['Address','Name','Price USD','Liquidity(1m)','Volume(1m)','1m Change','Open Chart'],
-        "sniperx_ghost_buyer_5m.csv": ['Address','Name','Price USD','Liquidity(5m)','Volume(5m)','5m Change','Open Chart'],
+        # Files below have been disabled as per user request
+        # "sniperx_results_5m.csv": ['Address','Name','Price USD','Liquidity(5m)','Volume(5m)','5m Change','Open Chart','Snipe','Ghost Buyer'],
+        # "sniperx_prelim_filtered.csv": ['Address','Name','Price USD','Liquidity','Volume','Age (Minutes)','Created At','Open Chart'],
+        # "sniperx_whale_trap_1m.csv": ['Address','Name','Price USD','Liquidity(1m)','Volume(1m)','1m Change','Open Chart'],
+        # "sniperx_whale_trap_5m.csv": ['Address','Name','Price USD','Liquidity(5m)','Volume(5m)','5m Change','Open Chart'],
+        # "sniperx_ghost_buyer_1m.csv": ['Address','Name','Price USD','Liquidity(1m)','Volume(1m)','1m Change','Open Chart'],
+        # "sniperx_ghost_buyer_5m.csv": ['Address','Name','Price USD','Liquidity(5m)','Volume(5m)','5m Change','Open Chart'],
         "processed_tokens.txt": [], 
         opened_tokens_file_to_reset_name: [], 
-        "bubblemaps_processed.txt": [],
-        "bubblemaps_failed.txt": [],
-        "bubblemaps_cluster_summary.csv": ['Token Address', 'Cluster ID', 'Holder Count', 'Token Amount', 'Percentage of Supply', 'USD Value', 'Highest Risk Reason'],
+        # Bubblemaps files disabled as per user request
+        # "bubblemaps_processed.txt": [],
+        # "bubblemaps_failed.txt": [],
+        # "bubblemaps_cluster_summary.csv": ['Token Address', 'Cluster ID', 'Holder Count', 'Token Amount', 'Percentage of Supply', 'USD Value', 'Highest Risk Reason'],
         token_risk_analysis_csv_name: token_risk_analysis_header,
     }
 

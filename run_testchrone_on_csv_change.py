@@ -40,22 +40,60 @@ class CSVChangeHandler(FileSystemEventHandler):
 
     def _terminate_pid(self, pid: int):
         try:
-            os.kill(pid, signal.SIGTERM)
-            start_time = time.time()
-            while time.time() - start_time < 5:
+            # First try a gentle termination
+            try:
+                os.kill(pid, signal.CTRL_BREAK_EVENT if os.name == 'nt' else signal.SIGTERM)
+                print(f"Watchdog: Sent termination signal to PID {pid}...")
+                
+                # Wait for process to terminate
+                start_time = time.time()
+                while time.time() - start_time < 5:  # 5 second timeout
+                    try:
+                        os.kill(pid, 0)  # Check if process exists
+                        time.sleep(0.2)
+                    except (ProcessLookupError, OSError):
+                        print(f"Watchdog: PID {pid} terminated gracefully.")
+                        return
+                
+                # If we get here, process didn't terminate, force kill it
+                print(f"Watchdog: Process {pid} did not terminate gracefully, forcing...")
                 try:
-                    os.kill(pid, 0)
-                    time.sleep(0.5)
-                except OSError:
-                    break
-            else:
-                os.kill(pid, signal.SIGKILL)
-                print(f"Watchdog: Force killed PID {pid} after timeout.")
-            print(f"Watchdog: Terminated previous PID {pid}.")
-        except ProcessLookupError:
-            print(f"Watchdog: Previous PID {pid} not running.")
+                    import psutil
+                    parent = psutil.Process(pid)
+                    children = parent.children(recursive=True)
+                    for child in children:
+                        try:
+                            child.terminate()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                            pass
+                    
+                    # Give children a moment to terminate
+                    gone, still_alive = psutil.wait_procs(children, timeout=3)
+                    for p in still_alive:
+                        try:
+                            p.kill()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                            pass
+                    
+                    # Now terminate the parent
+                    parent.terminate()
+                    parent.wait(3)
+                    print(f"Watchdog: Force terminated process group for PID {pid}")
+                except Exception as e:
+                    print(f"Watchdog: Error in process tree termination for {pid}: {e}")
+                    # Fall back to simple kill if psutil fails
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except Exception as e2:
+                        print(f"Watchdog: Error sending SIGKILL to {pid}: {e2}")
+                
+            except ProcessLookupError:
+                print(f"Watchdog: Process {pid} not found, already terminated.")
+            except Exception as e:
+                print(f"Watchdog: Error during initial termination of {pid}: {e}")
+                
         except Exception as e:
-            print(f"Watchdog: Error terminating PID {pid}: {e}")
+            print(f"Watchdog: Unexpected error in _terminate_pid for {pid}: {e}")
 
     def _cleanup_previous_process(self):
         if os.path.exists(PID_FILE):
@@ -106,24 +144,51 @@ class CSVChangeHandler(FileSystemEventHandler):
 
             if self.running_process and self.running_process.poll() is None:
                 print(f"Watchdog: Terminating previous '{TARGET_SCRIPT_FILENAME}' (PID: {self.running_process.pid})...")
-                self._terminate_pid(self.running_process.pid)
-                self.running_process = None
                 try:
-                    os.remove(PID_FILE)
-                except FileNotFoundError:
-                    pass
+                    # Store the PID before cleanup
+                    old_pid = self.running_process.pid
+                    # Clear the reference first to avoid race conditions
+                    proc = self.running_process
+                    self.running_process = None
+                    # Now terminate the process
+                    self._terminate_pid(old_pid)
+                    # Ensure the process object is cleaned up
+                    try:
+                        proc.wait(timeout=1)
+                    except (subprocess.TimeoutExpired, AttributeError):
+                        pass
+                except Exception as e:
+                    print(f"Watchdog: Error during process cleanup: {e}")
+                finally:
+                    try:
+                        if os.path.exists(PID_FILE):
+                            os.remove(PID_FILE)
+                    except Exception as e:
+                        print(f"Watchdog: Error removing PID file: {e}")
 
             print(f"Watchdog: '{CSV_FILENAME}' content changed (mtime: {current_mtime}). Launching '{TARGET_SCRIPT_FILENAME}'...")
             try:
                 with open(TARGET_SCRIPT_LOG_PATH, "a", encoding="utf-8") as logf:
                     logf.write(f"\n--- Watchdog launching {TARGET_SCRIPT_FILENAME} at {time.asctime()} due to {CSV_FILENAME} change ---\n")
                     
+                    # Create a new process group for the subprocess to isolate signals
+                    creation_flags = 0
+                    if os.name == 'nt':
+                        creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
+                    else:
+                        # On Unix-like systems, we'll use preexec_fn to create a new process group
+                        def preexec():
+                            import os
+                            os.setpgrp()
+                    
                     self.running_process = subprocess.Popen(
                         [sys.executable, TARGET_SCRIPT_PATH],
                         stdout=logf,
                         stderr=logf,
                         text=True,
-                        cwd=SCRIPT_DIR
+                        cwd=SCRIPT_DIR,
+                        creationflags=creation_flags if os.name == 'nt' else 0,
+                        preexec_fn=preexec if os.name != 'nt' else None
                     )
                     with open(PID_FILE, 'w') as pf:
                         pf.write(str(self.running_process.pid))
@@ -135,6 +200,16 @@ class CSVChangeHandler(FileSystemEventHandler):
 
 
 if __name__ == "__main__":
+    # Configure signal handlers early to prevent KeyboardInterrupt during initialization
+    import signal
+    
+    def signal_handler(sig, frame):
+        print("\nWatchdog: Received shutdown signal. Cleaning up...")
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     if not os.path.exists(CSV_FILE_PATH):
         print(f"Watchdog: WARNING - Monitored CSV file '{CSV_FILE_PATH}' does not exist. "
               "Waiting for it to be created by SniperX V2.")

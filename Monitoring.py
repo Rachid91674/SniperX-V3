@@ -134,7 +134,7 @@ STAGNATION_PRICE_THRESHOLD_PERCENT = 0.80 # e.g., price is 20% below baseline
 NO_BUY_SIGNAL_TIMEOUT_SECONDS = 180   # 3 minutes
 STAGNATION_TIMEOUT_SECONDS = 180      # 3 minutes
 BUY_SIGNAL_PRICE_INCREASE_PERCENT = 1.01 # 1% increase from baseline to consider it a buy signal
-PRICE_IMPACT_THRESHOLD_MONITOR = 65.0  # Minimum price impact percentage to monitor
+PRICE_IMPACT_THRESHOLD_MONITOR = 65.0  # Maximum price impact percentage to monitor (exclusive)
 
 # --- Global State Variables (Token Lifecycle Specific) ---
 g_token_start_time = None
@@ -166,14 +166,14 @@ def load_token_from_csv(csv_file_path):
             for row in reader:  # Iterate through all rows
                 mint_address = row.get('Address', '').strip()
 
-                # Filter on price impact
+                # Filter on price impact - only monitor tokens with price impact < threshold (e.g., < 65%)
                 price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent', '').strip()
                 try:
                     price_impact_val = float(price_impact_str)
                 except (ValueError, TypeError):
                     continue
 
-                if mint_address and price_impact_val >= PRICE_IMPACT_THRESHOLD_MONITOR:
+                if mint_address and price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR:
                     token_name_from_row = row.get('Name', '').strip()
                     latest_mint_address = mint_address
                     # Default name to address if 'Name' column is empty or not found for this row

@@ -48,16 +48,38 @@ class RestartRequired(Exception):
     pass
 
 def log_trade_result(token_name, mint_address, reason, buy_price=None, sell_price=None):
-    """Log trade results to a CSV file."""
+    """
+    Log trade results to a CSV file.
+    
+    Args:
+        token_name (str): Name of the token
+        mint_address (str): Token mint address
+        reason (str): Reason for trade completion
+        buy_price (float, optional): Buy price of the token
+        sell_price (float, optional): Sell price of the token
+    """
     log_file = 'trades.csv'
     file_exists = os.path.isfile(log_file)
     
-    with open(log_file, 'a', newline='') as f:
-        fieldnames = ['timestamp', 'token_name', 'mint_address', 'reason', 'buy_price', 'sell_price']
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+    # Calculate gain/loss percentage if both buy and sell prices are available
+    gain_loss_pct = None
+    if buy_price is not None and sell_price is not None and buy_price > 0:
+        gain_loss_pct = ((sell_price - buy_price) / buy_price) * 100.0
+    
+    with open(log_file, 'a', newline='', encoding='utf-8') as f:
+        fieldnames = [
+            'timestamp', 'token_name', 'mint_address', 'reason',
+            'buy_price', 'sell_price', 'gain_loss_pct', 'result'
+        ]
+        writer = csv.DictWriter(f, fieldnames=fieldnames, quoting=csv.QUOTE_NONNUMERIC)
         
         if not file_exists:
             writer.writeheader()
+        
+        # Determine trade result
+        trade_result = ''
+        if gain_loss_pct is not None:
+            trade_result = 'PROFIT' if gain_loss_pct > 0 else 'LOSS' if gain_loss_pct < 0 else 'BREAKEVEN'
             
         writer.writerow({
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -65,8 +87,16 @@ def log_trade_result(token_name, mint_address, reason, buy_price=None, sell_pric
             'mint_address': mint_address,
             'reason': reason,
             'buy_price': f"{buy_price:.9f}" if buy_price is not None else '',
-            'sell_price': f"{sell_price:.9f}" if sell_price is not None else ''
+            'sell_price': f"{sell_price:.9f}" if sell_price is not None else '',
+            'gain_loss_pct': f"{gain_loss_pct:.2f}%" if gain_loss_pct is not None else '',
+            'result': trade_result
         })
+    
+    # Also print to console for immediate feedback
+    if gain_loss_pct is not None:
+        result = "PROFIT" if gain_loss_pct > 0 else "LOSS" if gain_loss_pct < 0 else "BREAKEVEN"
+        print(f"\n📊 Trade Result: {result} | Gain/Loss: {gain_loss_pct:+.2f}% | "
+              f"Buy: {buy_price:.9f} | Sell: {sell_price:.9f} | {token_name} | {mint_address}\n")
 
 def restart_sniperx_v2():
     """Restart the SniperX V2 script and exit current process."""
@@ -134,7 +164,7 @@ STAGNATION_PRICE_THRESHOLD_PERCENT = 0.80 # e.g., price is 20% below baseline
 NO_BUY_SIGNAL_TIMEOUT_SECONDS = 180   # 3 minutes
 STAGNATION_TIMEOUT_SECONDS = 180      # 3 minutes
 BUY_SIGNAL_PRICE_INCREASE_PERCENT = 1.01 # 1% increase from baseline to consider it a buy signal
-PRICE_IMPACT_THRESHOLD_MONITOR = 65.0  # Maximum price impact percentage to monitor (exclusive)
+PRICE_IMPACT_THRESHOLD_MONITOR = 80.0  # Maximum price impact percentage to monitor (exclusive)
 
 # --- Global State Variables (Token Lifecycle Specific) ---
 g_token_start_time = None

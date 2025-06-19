@@ -133,6 +133,12 @@ class WalletManager:
         """Set a callback function to be invoked when balance changes."""
         self.on_balance_change_callback = callback_func
 
+async def maybe_await(func, *args, **kwargs):
+    """Await func if it's a coroutine function, otherwise call it directly."""
+    if asyncio.iscoroutinefunction(func):
+        return await func(*args, **kwargs)
+    return func(*args, **kwargs)
+
     async def _handle_account_notification(self, message_str: str):
         try:
             message = json.loads(message_str)
@@ -199,9 +205,13 @@ class WalletManager:
                             message = await asyncio.wait_for(websocket.recv(), timeout=60.0) # Add timeout to check connection
                             await self._handle_account_notification(str(message))
                         except asyncio.TimeoutError:
-                            # print("[WALLET_MANAGER] WebSocket keep-alive check (no message in 60s).")
-                            # You might want to send a ping if supported by RPC, or just continue listening
-                            pass # Or send a ping if your RPC supports it: await websocket.ping()
+                            # No message for 60 seconds - refresh balance to keep timestamp current
+                            sol_bal, usd_bal = await self.get_balance()
+                            if self.on_balance_change_callback:
+                                try:
+                                    await maybe_await(self.on_balance_change_callback, sol_bal, usd_bal, self.current_sol_price_usd)
+                                except Exception as cb_e:
+                                    print(f"[WALLET_MANAGER] Error in on_balance_change_callback: {cb_e}")
                         except Exception as e_inner:
                             print(f"[WALLET_MANAGER] Inner WebSocket loop error: {e_inner}")
                             break # Break inner to reconnect
@@ -214,12 +224,13 @@ class WalletManager:
 
 
 # --- Example Usage (can be run directly) ---
-async def my_balance_update_handler(balance: Decimal, usd_value: Decimal):
+async def my_balance_update_handler(balance: Decimal, usd_value: Decimal, sol_price: Decimal):
     """Handle balance updates and write to file for Telegram bot."""
     try:
         balance_data = {
             "sol": str(balance),
             "usd": str(usd_value),
+            "sol_price": str(sol_price),
             "timestamp": time.time()
         }
         
@@ -247,7 +258,7 @@ async def main():
     try:
         # Initial balance check and write
         sol_balance, usd_balance = await manager.get_balance()
-        await my_balance_update_handler(sol_balance, usd_balance)
+        await my_balance_update_handler(sol_balance, usd_balance, manager.current_sol_price_usd)
         
         # Start the WebSocket subscription
         await manager.subscribe_to_balance_changes()

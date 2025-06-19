@@ -167,10 +167,12 @@ def load_token_from_csv(csv_file_path):
                 mint_address = row.get('Address', '').strip()
 
                 # Filter on price impact - only monitor tokens with price impact < threshold (e.g., < 65%)
-                price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent', '').strip()
+                # Try both with and without trailing underscore in column name for backward compatibility
+                price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent', row.get('Price_Impact_Cluster_Sell_Percent_', '')).strip()
                 try:
-                    price_impact_val = float(price_impact_str)
-                except (ValueError, TypeError):
+                    price_impact_val = float(price_impact_str) if price_impact_str else PRICE_IMPACT_THRESHOLD_MONITOR + 1  # Default to exclude if missing
+                except (ValueError, TypeError) as e:
+                    print(f"Warning: Could not parse price impact value '{price_impact_str}': {e}")
                     continue
 
                 if mint_address and price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR:

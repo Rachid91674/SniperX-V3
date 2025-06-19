@@ -17,7 +17,11 @@ from solana.rpc.async_api import AsyncClient as SolanaAsyncClient
 from solana.rpc.commitment import Confirmed # Or Finalized, Processed
 from websockets.legacy.client import connect as websocket_connect # Using legacy for broader compatibility for now
 
-load_dotenv(dotenv_path='.env') # Ensure your env.txt is loaded
+# Try loading .env first, if not found try sniperx_config.env
+if not os.path.exists('.env') and os.path.exists('sniperx_config.env'):
+    load_dotenv(dotenv_path='sniperx_config.env')
+else:
+    load_dotenv(dotenv_path='.env')
 
 # --- Configuration ---
 RPC_URL = os.getenv("QUICKNODE_RPC") # Or HELIUS_RPC, ANKR_RPC etc.

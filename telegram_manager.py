@@ -14,7 +14,13 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import time
 from datetime import datetime
 
-load_dotenv(dotenv_path='env.txt')
+# Try loading .env first, if not found try sniperx_config.env or env.txt
+if os.path.exists('.env'):
+    load_dotenv(dotenv_path='.env')
+elif os.path.exists('sniperx_config.env'):
+    load_dotenv(dotenv_path='sniperx_config.env')
+else:
+    load_dotenv(dotenv_path='env.txt')
 
 # --- Configuration ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -26,12 +32,46 @@ SNIPERX_SCRIPT_PATH = os.path.join(SCRIPT_DIR, SNIPERX_SCRIPT_NAME)
 WALLET_MANAGER_PATH = os.path.join(SCRIPT_DIR, WALLET_MANAGER_SCRIPT)
 
 # --- Logging ---
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+def setup_logging():
+    # Create logs directory if it doesn't exist
+    logs_dir = os.path.join(SCRIPT_DIR, 'logs')
+    os.makedirs(logs_dir, exist_ok=True)
+    
+    # Create a custom logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    
+    # Create handlers
+    console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(
+        os.path.join(logs_dir, f'telegram_bot_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
+        encoding='utf-8'
+    )
+    
+    # Set levels
+    console_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
+    
+    # Create formatters and add it to handlers
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(log_format)
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+    
+    # Clear any existing handlers
+    logger.handlers = []
+    
+    # Add handlers to the logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    
+    return logging.getLogger(__name__)
+
+# Initialize logging
+logger = setup_logging()
 
 # --- Global state for SniperX process ---
+global sniperx_process, wallet_manager_process, current_balance
 sniperx_process: subprocess.Popen | None = None
 wallet_manager_process: subprocess.Popen | None = None
 current_balance = {"sol": Decimal("0"), "usd": Decimal("0")}
@@ -151,10 +191,9 @@ async def status_command(update: Update, context: CallbackContext) -> None:
         return
     global sniperx_process
     if sniperx_process and sniperx_process.poll() is None:
-        # Corrected: if poll() is None, the process is running.
-        status_message = f"{SNIPERX_SCRIPT_NAME} is currently running (PID: {sniperx_process.pid})."
+        status = "paused" if sniperx_process.poll() is None else "running"
         if update.message:
-            await update.message.reply_text(status_message)
+            await update.message.reply_text(f"{SNIPERX_SCRIPT_NAME} is currently {status} (PID: {sniperx_process.pid}).")
     else:
         if update.message:
             await update.message.reply_text(f"{SNIPERX_SCRIPT_NAME} is not running.")
@@ -203,43 +242,80 @@ async def read_wallet_balance():
     """Read the current wallet balance from the JSON file."""
     try:
         balance_file_path = os.path.join(SCRIPT_DIR, "wallet_balance.json")
-        if os.path.exists(balance_file_path):
-            with open(balance_file_path, "r") as f:
+        logger.info(f"Reading wallet balance from: {balance_file_path}")
+        
+        if not os.path.exists(balance_file_path):
+            logger.warning(f"Wallet balance file not found: {balance_file_path}")
+            return {"sol": Decimal("0"), "usd": Decimal("0"), "timestamp": 0}
+            
+        with open(balance_file_path, "r") as f:
+            try:
                 data = json.load(f)
+                logger.debug(f"Raw wallet balance data: {data}")
+                
+                # Check if required fields exist
+                if not all(key in data for key in ["sol", "usd", "timestamp"]):
+                    logger.error(f"Missing required fields in wallet balance data: {data}")
+                    return {"sol": Decimal("0"), "usd": Decimal("0"), "timestamp": 0}
+                
                 # Check if the data is recent (within last 5 minutes)
                 timestamp = float(data.get("timestamp", 0))
-                if time.time() - timestamp < 300:
+                current_time = time.time()
+                time_diff = current_time - timestamp
+                
+                if time_diff > 300:  # 5 minutes in seconds
+                    logger.warning(f"Balance data is too old ({(time_diff/60):.1f} minutes old)")
+                    return {"sol": Decimal("0"), "usd": Decimal("0"), "timestamp": 0}
+                
+                # Parse the balance values
+                try:
+                    sol_balance = Decimal(str(data["sol"]))
+                    usd_balance = Decimal(str(data["usd"]))
+                    
+                    logger.info(f"Successfully read balance - SOL: {sol_balance}, USD: {usd_balance}, Age: {(time_diff/60):.1f} minutes")
+                    
                     return {
-                        "sol": Decimal(data["sol"]),
-                        "usd": Decimal(data["usd"]),
+                        "sol": sol_balance,
+                        "usd": usd_balance,
                         "timestamp": timestamp
                     }
-                else:
-                    logger.warning("Balance data is too old")
+                except (ValueError, TypeError) as ve:
+                    logger.error(f"Error parsing balance values: {ve}, data: {data}")
+                    return {"sol": Decimal("0"), "usd": Decimal("0"), "timestamp": 0}
+                    
+            except json.JSONDecodeError as je:
+                logger.error(f"Error decoding wallet balance JSON: {je}")
+                return {"sol": Decimal("0"), "usd": Decimal("0"), "timestamp": 0}
+                
     except Exception as e:
-        logger.error(f"Error reading wallet balance: {e}")
+        logger.exception(f"Unexpected error in read_wallet_balance: {e}")
+    
     return {"sol": Decimal("0"), "usd": Decimal("0"), "timestamp": 0}
 
 async def button_callback(update: Update, context: CallbackContext) -> None:
-    # Declare global variables at the start of the function
-    global current_balance, wallet_manager_process, sniperx_process
-    
-    query = update.callback_query
-    if not query:
-        return
-        
-    await query.answer()
-
-    if not is_authorized(update):
-        if query.message:
-            await query.edit_message_text(text="You are not authorized for this action.")
-        return
-
-    action = query.data
-    if not action:
-        return
-        
+    global wallet_manager_process  # Move global declaration here
     try:
+        logger.info(f"Button callback received: {update}")
+        query = update.callback_query
+        if not query:
+            logger.warning("No query in update")
+            return
+            
+        await query.answer()
+
+        if not is_authorized(update):
+            logger.warning(f"Unauthorized access attempt from {update.effective_user.id if update.effective_user else 'unknown'}")
+            if query.message:
+                await query.edit_message_text(text="You are not authorized for this action.")
+            return
+
+        action = query.data
+        if not action:
+            logger.warning("No action in query data")
+            return
+            
+        logger.info(f"Processing action: {action}")
+        
         if action == 'start_sniperx':
             if query.message and query.message.chat and query.from_user:
                 update_dict = {
@@ -282,38 +358,73 @@ async def button_callback(update: Update, context: CallbackContext) -> None:
                     ]])
                 )
         elif action == 'show_balance':
-            # Update balance from file
-            current_balance = await read_wallet_balance()
-            
-            # Check if SniperX is running
-            if not sniperx_process or (hasattr(sniperx_process, 'poll') and sniperx_process.poll() is not None):
-                balance_text = "SniperX is not running. Please start SniperX first."
-            # Check if wallet manager is running
-            elif not wallet_manager_process or wallet_manager_process.poll() is not None:
-                # Try to restart wallet manager if SniperX is running but wallet manager isn't
-                try:
-                    wallet_manager_process = subprocess.Popen(
-                        [sys.executable, WALLET_MANAGER_PATH],
-                        cwd=SCRIPT_DIR
-                    )
-                    await asyncio.sleep(2)  # Give it a moment to start
-                    if wallet_manager_process.poll() is not None:
-                        balance_text = "Failed to start wallet manager. Please restart SniperX."
-                    else:
-                        current_balance = await read_wallet_balance()
-                        if current_balance["sol"] == Decimal("0"):
-                            balance_text = "Wallet manager is starting up. Please wait a moment and try again."
+            try:
+                logger.info("Processing show_balance action")
+                # Update balance from file
+                current_balance = await read_wallet_balance()
+                logger.info(f"Current balance after read: {current_balance}")
+                
+                # Check if SniperX is running
+                if not sniperx_process or sniperx_process.poll() is not None:
+                    balance_text = "SniperX is not running. Please start SniperX first."
+                    logger.warning(balance_text)
+                # Check if wallet manager is running
+                elif not wallet_manager_process or wallet_manager_process.poll() is not None:
+                    logger.info("Wallet manager not running, attempting to start it")
+                    # Try to restart wallet manager if SniperX is running but wallet manager isn't
+                    try:
+                        logger.info(f"Starting wallet manager from: {WALLET_MANAGER_PATH}")
+                        wallet_manager_process = subprocess.Popen(
+                            [sys.executable, WALLET_MANAGER_PATH],
+                            cwd=SCRIPT_DIR,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE
+                        )
+                        logger.info(f"Wallet manager started with PID: {wallet_manager_process.pid}")
+                        
+                        # Give it a moment to start
+                        await asyncio.sleep(2)
+                        
+                        if wallet_manager_process.poll() is not None:
+                            error_output = wallet_manager_process.stderr.read().decode() if wallet_manager_process.stderr else 'No error output'
+                            logger.error(f"Wallet manager failed to start. Exit code: {wallet_manager_process.returncode}, Error: {error_output}")
+                            balance_text = "Failed to start wallet manager. Please check logs and restart SniperX."
                         else:
-                            last_update = datetime.fromtimestamp(current_balance["timestamp"]).strftime("%H:%M:%S")
-                            balance_text = f"Current Balance:\nSOL: {current_balance['sol']:.6f}\nUSD: ${current_balance['usd']:.2f}\n\nLast Update: {last_update}"
-                except Exception as e:
-                    logger.error(f"Error restarting wallet manager: {e}")
-                    balance_text = "Error starting wallet manager. Please restart SniperX."
-            elif current_balance["sol"] == Decimal("0"):
-                balance_text = "Waiting for wallet balance update...\nPlease try again in a few seconds."
+                            logger.info("Wallet manager started successfully, reading balance...")
+                            current_balance = await read_wallet_balance()
+                            logger.info(f"Balance after wallet manager start: {current_balance}")
+                            
+                            if current_balance["sol"] == Decimal("0"):
+                                balance_text = "Wallet manager is starting up. Please wait a moment and try again."
+                                logger.info(balance_text)
+                            else:
+                                last_update = datetime.fromtimestamp(current_balance["timestamp"]).strftime("%H:%M:%S")
+                                balance_text = f"Current Balance:\nSOL: {current_balance['sol']:.6f}\nUSD: ${current_balance['usd']:.2f}\n\nLast Update: {last_update}"
+                                logger.info("Balance retrieved successfully")
+                    except Exception as e:
+                        logger.exception("Error in wallet manager startup:")
+                        balance_text = f"Error starting wallet manager: {str(e)}. Please check logs and restart SniperX."
+                else:
+                    logger.info("Wallet manager is running, reading balance...")
+                    current_balance = await read_wallet_balance()
+                    logger.info(f"Current balance: {current_balance}")
+                    
+                    if current_balance["sol"] == Decimal("0"):
+                        balance_text = "Waiting for wallet balance update...\nPlease try again in a few seconds."
+                        logger.info(balance_text)
+                    else:
+                        last_update = datetime.fromtimestamp(current_balance["timestamp"]).strftime("%H:%M:%S")
+                        balance_text = f"Current Balance:\nSOL: {current_balance['sol']:.6f}\nUSD: ${current_balance['usd']:.2f}\n\nLast Update: {last_update}"
+                        logger.info("Balance retrieved successfully")
+            except Exception as e:
+                logger.exception("Unexpected error in show_balance:")
+                balance_text = f"An unexpected error occurred: {str(e)}. Please check logs and try again."
             else:
-                last_update = datetime.fromtimestamp(current_balance["timestamp"]).strftime("%H:%M:%S")
-                balance_text = f"Current Balance:\nSOL: {current_balance['sol']:.6f}\nUSD: ${current_balance['usd']:.2f}\n\nLast Update: {last_update}"
+                if current_balance["sol"] == Decimal("0"):
+                    balance_text = "Waiting for wallet balance update...\nPlease try again in a few seconds."
+                else:
+                    last_update = datetime.fromtimestamp(current_balance["timestamp"]).strftime("%H:%M:%S")
+                    balance_text = f"Current Balance:\nSOL: {current_balance['sol']:.6f}\nUSD: ${current_balance['usd']:.2f}\n\nLast Update: {last_update}"
             
             # Always try to edit the existing message first
             try:

@@ -138,11 +138,18 @@ def calculate_dump_risk_lp_vs_cluster(cluster_percent_supply, lp_percent_supply)
     return (cluster_percent_supply / lp_percent_supply) * 100 
 
 def calculate_price_impact_cluster_sell(pool_project_token_amount, cluster_sell_token_amount):
-    if pool_project_token_amount is None or pool_project_token_amount == 0 or cluster_sell_token_amount is None:
-        return 0.0
-    if pool_project_token_amount + cluster_sell_token_amount == 0: 
-        return 100.0 
+    if cluster_sell_token_amount is None or cluster_sell_token_amount == 0:
+        return 0.0  # No sell pressure, no impact
+
+    # At this point, cluster_sell_token_amount is a positive number
+    if pool_project_token_amount is None: # pool_project_token_amount could be None
+        return 0.0 # Consistent with test (None, 100) expecting 0.0
+
+    if pool_project_token_amount == 0: # Pool is empty, but there's sell pressure
+        return 100.0
     
+    # Normal calculation: pool_project_token_amount > 0 and cluster_sell_token_amount > 0
+    # Denominator (pool_project_token_amount + cluster_sell_token_amount) cannot be zero here.
     price_ratio_after_sell = (pool_project_token_amount / (pool_project_token_amount + cluster_sell_token_amount)) ** 2
     price_impact_percent = (1 - price_ratio_after_sell) * 100
     return price_impact_percent

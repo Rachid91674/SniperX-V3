@@ -137,6 +137,33 @@ def restart_sniperx_v2():
         return False
     return True
 
+def remove_token_from_csv(token_address, csv_file_path):
+    """Remove a token from the CSV file by its address."""
+    try:
+        # Read all rows from the CSV
+        with open(csv_file_path, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            fieldnames = reader.fieldnames
+        
+        # Filter out the token to be removed
+        new_rows = [row for row in rows if row.get('Address', '').strip() != token_address]
+        
+        # If the token was found and removed, write the updated rows back to the file
+        if len(new_rows) < len(rows):
+            with open(csv_file_path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(new_rows)
+            print(f"✅ Removed token {token_address} from {os.path.basename(csv_file_path)}")
+            return True
+        else:
+            print(f"ℹ️ Token {token_address} not found in {os.path.basename(csv_file_path)}")
+            return False
+    except Exception as e:
+        print(f"❌ Error removing token {token_address} from CSV: {e}")
+        return False
+
 class TokenProcessingComplete(Exception):
     """Signals that the current token's monitoring/trading lifecycle is complete."""
     def __init__(self, mint_address, reason, buy_price=None, sell_price=None):
@@ -144,9 +171,23 @@ class TokenProcessingComplete(Exception):
         self.reason = reason
         self.buy_price = buy_price
         self.sell_price = sell_price
+        
         # Log the trade result
         log_trade_result(g_token_name, mint_address, reason, buy_price, sell_price)
+        
+        # Get the CSV file path
+        csv_file_path = os.environ.get('TOKEN_RISK_ANALYSIS_CSV')
+        if not csv_file_path:
+            csv_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'token_risk_analysis.csv')
+        
+        # Remove the token from the CSV file
+        token_removed = remove_token_from_csv(mint_address, csv_file_path)
+        
+        if not token_removed:
+            print(f"⚠️ Could not remove token {mint_address} from CSV. It may be processed again.")
+        
         print(f"🔄 Token processing complete. Restarting SniperX V2...")
+        
         # Attempt to restart SniperX V2
         if restart_sniperx_v2():
             # If restart was successful, the process will exit before reaching here
@@ -199,11 +240,15 @@ def load_token_from_csv(csv_file_path):
                 # Filter on price impact - only monitor tokens with price impact < threshold (e.g., < 65%)
                 # Try both with and without trailing underscore in column name for backward compatibility
                 price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent', row.get('Price_Impact_Cluster_Sell_Percent_', '')).strip()
-                try:
-                    price_impact_val = float(price_impact_str) if price_impact_str else PRICE_IMPACT_THRESHOLD_MONITOR + 1  # Default to exclude if missing
-                except (ValueError, TypeError) as e:
-                    print(f"Warning: Could not parse price impact value '{price_impact_str}': {e}")
-                    continue
+                
+                # Handle 'N/A' or other non-numeric values by treating them as high price impact (above threshold)
+                price_impact_val = PRICE_IMPACT_THRESHOLD_MONITOR + 1  # Default to exclude if missing or invalid
+                if price_impact_str and price_impact_str.upper() != 'N/A':
+                    try:
+                        price_impact_val = float(price_impact_str)
+                    except (ValueError, TypeError) as e:
+                        print(f"Warning: Could not parse price impact value '{price_impact_str}': {e}")
+                        # Continue with default high value which will exclude this token from monitoring
 
                 if mint_address and price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR:
                     token_name_from_row = row.get('Name', '').strip()

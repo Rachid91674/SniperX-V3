@@ -288,34 +288,53 @@ def run_full_risk_analysis():
                 output_row["Overall_Risk_Status"] = "Medium Risk / Check Data" 
         else:
             risk_warnings.append("DexScreenerDataN/A")
-            output_row["Overall_Risk_Status"] = "Data N/A"
 
         output_row["Risk_Warning_Details"] = "; ".join(risk_warnings) if risk_warnings else "None"
         results_to_write.append(output_row)
 
     if results_to_write:
         try:
+            # Write to token_risk_analysis.csv
             with open(OUTPUT_RISK_ANALYSIS_CSV, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=output_headers)
+                writer = csv.DictWriter(f, fieldnames=output_headers, quoting=csv.QUOTE_NONNUMERIC)
                 writer.writeheader()
-                writer.writerows(results_to_write)
+                for row in results_to_write:
+                    try:
+                        writer.writerow(row)
+                    except Exception as row_error:
+                        logging.error(f"Error writing row to {OUTPUT_RISK_ANALYSIS_CSV}: {row_error}\nRow data: {row}")
+                        continue
 
+            # Write to filtered_tokens_with_all_risks.csv
             with open(FILTERED_TOKENS_WITH_ALL_RISKS_CSV, 'w', newline='', encoding='utf-8') as f_filtered:
-                filtered_writer = csv.DictWriter(f_filtered, fieldnames=output_headers)
+                filtered_writer = csv.DictWriter(f_filtered, fieldnames=output_headers, quoting=csv.QUOTE_NONNUMERIC)
                 filtered_writer.writeheader()
-                filtered_writer.writerows(results_to_write)
+                for row in results_to_write:
+                    try:
+                        filtered_writer.writerow(row)
+                    except Exception as row_error:
+                        logging.error(f"Error writing row to {FILTERED_TOKENS_WITH_ALL_RISKS_CSV}: {row_error}\nRow data: {row}")
+                        continue
 
-            logging.info(
-                f"Successfully wrote {len(results_to_write)} processed token entries to {OUTPUT_RISK_ANALYSIS_CSV} and {FILTERED_TOKENS_WITH_ALL_RISKS_CSV}"
-            )
+            logging.info(f"Successfully wrote {len(results_to_write)} processed token entries to {OUTPUT_RISK_ANALYSIS_CSV} and {FILTERED_TOKENS_WITH_ALL_RISKS_CSV}")
+            
+            # Verify the files were written correctly
+            try:
+                with open(OUTPUT_RISK_ANALYSIS_CSV, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    logging.info(f"{OUTPUT_RISK_ANALYSIS_CSV} contains {len(lines)} lines (including header)")
+                
+                with open(FILTERED_TOKENS_WITH_ALL_RISKS_CSV, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    logging.info(f"{FILTERED_TOKENS_WITH_ALL_RISKS_CSV} contains {len(lines)} lines (including header)")
+            except Exception as verify_error:
+                logging.error(f"Error verifying output files: {verify_error}")
+                
         except Exception as e:
-            logging.error(
-                f"Error writing risk analysis to {OUTPUT_RISK_ANALYSIS_CSV} or {FILTERED_TOKENS_WITH_ALL_RISKS_CSV}: {e}",
-                exc_info=True,
-            )
+            logging.error(f"Error writing risk analysis to files: {e}", exc_info=True)
     else:
         logging.info("No token data processed to write.")
-
+        
     logging.info("--- Full Token Risk Analysis Finished ---")
 
 if __name__ == "__main__":

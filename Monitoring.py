@@ -221,40 +221,61 @@ def load_token_from_csv(csv_file_path):
     """
     latest_mint_address = None
     latest_token_name = None
+    print(f"\n=== DEBUG: Loading tokens from {csv_file_path} ===")
+    print(f"DEBUG: PRICE_IMPACT_THRESHOLD_MONITOR = {PRICE_IMPACT_THRESHOLD_MONITOR}%")
+    
     try:
         with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
             reader = csv.DictReader(file)
             if not reader.fieldnames:
-                # This is not an error, CSV can be legitimately empty.
-                # print(f"INFO: CSV '{csv_file_path}' is empty or has no headers. No token loaded.")
+                print("DEBUG: CSV is empty or has no headers")
                 return None, None
 
             actual_headers = [header.strip() for header in reader.fieldnames]
+            print(f"DEBUG: Found headers: {actual_headers}")
+            
             if 'Address' not in actual_headers:
-                print(f"Error: CSV missing 'Address' header. Found: {actual_headers}. No token loaded.")
+                print(f"ERROR: CSV missing 'Address' header. Found: {actual_headers}")
                 return None, None
 
-            for row in reader:  # Iterate through all rows
+            for row_idx, row in enumerate(reader, 1):
                 mint_address = row.get('Address', '').strip()
+                print(f"\n--- DEBUG: Processing row {row_idx} ---")
+                print(f"DEBUG: Token: {row.get('Name', 'N/A')} | Address: {mint_address}")
 
-                # Filter on price impact - only monitor tokens with price impact < threshold (e.g., < 65%)
-                # Try both with and without trailing underscore in column name for backward compatibility
-                price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent', row.get('Price_Impact_Cluster_Sell_Percent_', '')).strip()
+                # Get price impact from either column name variant
+                price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent', 
+                                         row.get('Price_Impact_Cluster_Sell_Percent_', '')).strip()
                 
-                # Handle 'N/A' or other non-numeric values by treating them as high price impact (above threshold)
-                price_impact_val = PRICE_IMPACT_THRESHOLD_MONITOR + 1  # Default to exclude if missing or invalid
+                print(f"DEBUG: Raw price impact string: '{price_impact_str}'")
+                
+                # Handle 'N/A' or other non-numeric values
+                price_impact_val = PRICE_IMPACT_THRESHOLD_MONITOR + 1  # Default to exclude if invalid
                 if price_impact_str and price_impact_str.upper() != 'N/A':
                     try:
                         price_impact_val = float(price_impact_str)
+                        print(f"DEBUG: Parsed price impact: {price_impact_val}%")
                     except (ValueError, TypeError) as e:
-                        print(f"Warning: Could not parse price impact value '{price_impact_str}': {e}")
-                        # Continue with default high value which will exclude this token from monitoring
+                        print(f"WARNING: Could not parse price impact value '{price_impact_str}': {e}")
+                else:
+                    print(f"WARNING: Empty or N/A price impact value")
+
+                print(f"DEBUG: Checking if token passes filters...")
+                print(f"DEBUG: - Has address: {bool(mint_address)}")
+                print(f"DEBUG: - Price impact {price_impact_val}% < {PRICE_IMPACT_THRESHOLD_MONITOR}%: {price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR}")
 
                 if mint_address and price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR:
                     token_name_from_row = row.get('Name', '').strip()
                     latest_mint_address = mint_address
-                    # Default name to address if 'Name' column is empty or not found for this row
                     latest_token_name = token_name_from_row if token_name_from_row else mint_address
+                    print(f"✅ DEBUG: Token SELECTED for monitoring: {latest_token_name} ({latest_mint_address}) with price impact {price_impact_val}%")
+                else:
+                    reason = []
+                    if not mint_address:
+                        reason.append("missing address")
+                    if price_impact_val >= PRICE_IMPACT_THRESHOLD_MONITOR:
+                        reason.append(f"price impact {price_impact_val}% >= {PRICE_IMPACT_THRESHOLD_MONITOR}%")
+                    print(f"❌ DEBUG: Token REJECTED: {', '.join(reason)}")
             
             if latest_mint_address:
                 # This print can be verbose if called every CSV_CHECK_INTERVAL_SECONDS by checker

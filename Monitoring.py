@@ -781,10 +781,14 @@ async def main():
     try:
         # Attempt to create the lock file for this instance
         # This action signifies that this instance is now intending to be active.
-        with open(LOCK_FILE_PATH, 'w') as f_lock:
-            f_lock.write(str(os.getpid()))
-        lock_created_by_this_instance = True
-        print(f"INFO: Lock file {LOCK_FILE_PATH} created/taken by Monitoring.py (PID: {os.getpid()}).")
+        try:
+            with open(LOCK_FILE_PATH, 'w') as f_lock:
+                f_lock.write(str(os.getpid()))
+            lock_created_by_this_instance = True
+            print(f"INFO: Lock file {LOCK_FILE_PATH} created/taken by Monitoring.py (PID: {os.getpid()}).")
+        except Exception as e:
+            print(f"ERROR: Failed to create lock file: {e}")
+            return
 
         sol_price_task = asyncio.create_task(periodic_sol_price_updater())
 
@@ -925,13 +929,48 @@ async def main():
                 # Small delay to ensure all resources are released
                 await asyncio.sleep(2)
                 
-                # Restart SniperX V2 to process next token
-                print("🔄 Preparing to restart SniperX V2 to process next token...")
+                # Remove from opened_tokens.txt if exists
+                opened_tokens_path = os.path.join(SCRIPT_DIR, 'opened_tokens.txt')
+                if os.path.exists(opened_tokens_path):
+                    try:
+                        with open(opened_tokens_path, 'r') as f:
+                            tokens = [line.strip() for line in f.readlines() if line.strip()]
+                        
+                        if processed_token_mint_address in tokens:
+                            tokens.remove(processed_token_mint_address)
+                            with open(opened_tokens_path, 'w') as f:
+                                f.write('\n'.join(tokens) + '\n')
+                            print(f"✅ Removed token {processed_token_mint_address} from opened_tokens.txt")
+                    except Exception as e:
+                        print(f"⚠️ Failed to update opened_tokens.txt: {e}")
                 
-                # Use os._exit to ensure a clean restart
+                # Clean up lock file
+                if os.path.exists(LOCK_FILE_PATH):
+                    try:
+                        os.remove(LOCK_FILE_PATH)
+                        print(f"✅ Removed lock file: {LOCK_FILE_PATH}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to remove lock file: {e}")
+                
+                # Restart SniperX V2 to process next token
+                print("🔄 Restarting SniperX V2 to process next token...")
+                
+                # Ensure all resources are released
+                await asyncio.sleep(1)
+                
+                # Start new process first
                 python = sys.executable
-                os.execl(python, python, os.path.join(SCRIPT_DIR, 'SniperX V2.py'))
-                return
+                script_path = os.path.join(SCRIPT_DIR, 'SniperX V2.py')
+                
+                if os.name == 'nt':  # Windows
+                    subprocess.Popen([python, script_path], 
+                                  creationflags=subprocess.CREATE_NEW_CONSOLE)
+                else:  # Unix/Linux/Mac
+                    subprocess.Popen([python, script_path],
+                                  start_new_session=True)
+                
+                # Then exit current process
+                os._exit(0)
                 
             # Reset state for next iteration
             current_token = None

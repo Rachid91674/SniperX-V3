@@ -41,6 +41,7 @@ g_trade_status = 'monitoring'  # Initial status
 g_buy_price_usd = None
 
 g_current_tasks = []  # Holds tasks like listener, trader, csv_checker for cancellation
+g_processing_token = False  # Tracks if we're currently processing a token
 
 # Custom exception for signaling restart
 class RestartRequired(Exception):
@@ -99,43 +100,54 @@ def log_trade_result(token_name, mint_address, reason, buy_price=None, sell_pric
               f"Buy: {buy_price:.9f} | Sell: {sell_price:.9f} | {token_name} | {mint_address}\n")
 
 def restart_sniperx_v2():
-    """Restart the SniperX V2 script and exit current process."""
-    try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        script_path = os.path.join(script_dir, 'SniperX V2.py')
-        
-        if os.path.exists(script_path):
-            # Clean up lock file if it exists
-            lock_file = os.path.join(script_dir, 'monitoring_active.lock')
-            if os.path.exists(lock_file):
-                try:
-                    os.remove(lock_file)
-                    print(f"🔓 Removed lock file: {lock_file}")
-                except Exception as e:
-                    print(f"⚠️ Could not remove lock file: {e}")
-            
-            # Start new process
-            python_executable = sys.executable
-            print(f"🔄 Restarting SniperX V2 script...")
-            
-            # Start the new process and exit current one
-            if os.name == 'nt':  # Windows
-                subprocess.Popen([python_executable, script_path], 
-                              creationflags=subprocess.CREATE_NEW_CONSOLE)
-            else:  # Unix/Linux/Mac
-                subprocess.Popen([python_executable, script_path],
-                              start_new_session=True)
-            
-            # Exit the current process
-            sys.exit(0)
-            
-        else:
-            print(f"❌ SniperX V2.py not found at {script_path}")
-            return False
-    except Exception as e:
-        print(f"❌ Failed to restart SniperX V2: {e}")
+    """Restart the SniperX V2 script and exit current process.
+    
+    Returns:
+        bool: True if restart was initiated successfully, False otherwise
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(script_dir, 'SniperX V2.py')
+    
+    if not os.path.exists(script_path):
+        print(f"❌ SniperX V2.py not found at {script_path}")
         return False
-    return True
+        
+    # Clean up lock file if it exists
+    lock_file = os.path.join(script_dir, 'monitoring_active.lock')
+    if os.path.exists(lock_file):
+        try:
+            os.remove(lock_file)
+            print(f"🔓 Removed lock file: {lock_file}")
+        except Exception as e:
+            print(f"⚠️ Could not remove lock file: {e}")
+    
+    # Start new process
+    python_executable = sys.executable
+    print(f"🔄 Restarting SniperX V2 script...")
+    
+    try:
+        # Start the new process
+        if os.name == 'nt':  # Windows
+            subprocess.Popen(
+                [python_executable, script_path],
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                cwd=script_dir,  # Set working directory
+                close_fds=True  # Close all file descriptors
+            )
+        else:  # Unix/Linux/Mac
+            subprocess.Popen(
+                [python_executable, script_path],
+                start_new_session=True,
+                cwd=script_dir,  # Set working directory
+                close_fds=True   # Close all file descriptors
+            )
+        
+        print("✅ Successfully started new SniperX V2 process")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to start new SniperX V2 process: {e}")
+        return False
 
 def remove_token_from_csv(token_address, csv_file_path):
     """Remove a token from the CSV file by its address."""
@@ -270,58 +282,111 @@ def load_token_from_csv(csv_file_path):
                 
     except FileNotFoundError:
         print(f"Error: Input CSV file '{csv_file_path}' not found. No token loaded.")
-        return None, None
-    except Exception as e:
-        print(f"Error reading CSV file '{csv_file_path}': {e}. No token loaded.")
-        return None, None
-
-def remove_token_from_csv(mint_address_to_remove: str, csv_file_path: str):
-    """Removes a token's row from the CSV file based on its mint address."""
+def remove_token_from_csv(mint_address_to_remove: str, csv_file_path: str) -> bool:
+    """
+    Removes a token's row from the CSV file based on its mint address.
+    
+    Args:
+        mint_address_to_remove: The token mint address to remove
+        csv_file_path: Path to the CSV file
+        
+    Returns:
+        bool: True if token was found and removed, False otherwise
+    """
     if not mint_address_to_remove:
         print("ERROR: No mint address provided for removal.")
         return False
 
-    rows_to_keep = []
-    headers = []
-    found_and_removed = False
-
+    print(f"ℹ️ Attempting to remove token {mint_address_to_remove} from {csv_file_path}")
+    
+    # Normalize the address for comparison
+    mint_address_to_remove = mint_address_to_remove.strip().lower()
+    
+    # Create a backup of the original file
+    backup_path = f"{csv_file_path}.bak"
+    
     try:
-        with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
-            reader = csv.DictReader(file)
-            headers = reader.fieldnames
-            if not headers:
-                print(f"INFO: CSV '{csv_file_path}' is empty or has no headers. Nothing to remove.")
-                return False # Or True, depending on desired outcome for empty CSV
+        # Read all lines first to handle potential malformed CSV
+        with open(csv_file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        if not content.strip():
+            print(f"INFO: CSV file '{csv_file_path}' is empty.")
+            return False
             
-            if 'Address' not in headers:
-                print(f"ERROR: CSV '{csv_file_path}' missing 'Address' header. Cannot remove token.")
-                return False
-
-            for row in reader:
-                if row.get('Address', '').strip() == mint_address_to_remove:
-                    found_and_removed = True
-                    print(f"INFO: Token {mint_address_to_remove} marked for removal from '{csv_file_path}'.")
-                else:
-                    rows_to_keep.append(row)
+        lines = content.splitlines()
+        if not lines:
+            print(f"INFO: No lines found in '{csv_file_path}'.")
+            return False
+            
+        # Get headers from first line
+        headers = [h.strip('"\' ') for h in lines[0].strip().split(',')]
+        if 'Address' not in headers:
+            print(f"ERROR: CSV '{csv_file_path}' missing 'Address' header. Cannot remove token.")
+            print(f"Available headers: {headers}")
+            return False
+            
+        address_index = headers.index('Address')
+        rows_to_keep = [lines[0]]  # Keep headers
+        found = False
         
-        if not found_and_removed:
-            print(f"INFO: Token {mint_address_to_remove} not found in '{csv_file_path}'. No changes made.")
-            return False # Or True, as no error but nothing changed
-
-        # Write the filtered rows back to the CSV
-        with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, fieldnames=headers)
-            writer.writeheader()
-            writer.writerows(rows_to_keep)
+        # Process each line (skip header)
+        for line in lines[1:]:
+            if not line.strip():
+                continue  # Skip empty lines
+                
+            # Handle quoted values that might contain commas
+            values = []
+            in_quotes = False
+            current_value = []
+            
+            for c in line:
+                if c == '"':
+                    in_quotes = not in_quotes
+                elif c == ',' and not in_quotes:
+                    values.append(''.join(current_value).strip())
+                    current_value = []
+                    continue
+                current_value.append(c)
+            if current_value:  # Add the last value
+                values.append(''.join(current_value).strip())
+            
+            if len(values) > address_index:
+                current_address = values[address_index].strip('"\' ').lower()
+                if current_address == mint_address_to_remove:
+                    print(f"✅ Found token {mint_address_to_remove} in CSV. Marking for removal.")
+                    found = True
+                    continue  # Skip this row (don't add to rows_to_keep)
+            
+            # Reconstruct the original line to preserve formatting
+            rows_to_keep.append(line)
         
-        print(f"INFO: Token {mint_address_to_remove} successfully removed from '{csv_file_path}'.")
+        if not found:
+            print(f"ℹ️ Token {mint_address_to_remove} not found in '{csv_file_path}'. No changes made.")
+            return False
+            
+        # Create backup
+        import shutil
+        try:
+            shutil.copy2(csv_file_path, backup_path)
+            print(f"ℹ️ Created backup at: {backup_path}")
+        except Exception as e:
+            print(f"⚠️ Could not create backup: {e}")
+        
+        # Write the filtered content back to the file
+        with open(csv_file_path, 'w', encoding='utf-8', newline='') as f:
+            f.write('\n'.join(rows_to_keep))
+            
+        print(f"✅ Successfully removed token {mint_address_to_remove} from '{csv_file_path}'.")
         return True
-
+        
     except FileNotFoundError:
-        print(f"ERROR: CSV file '{csv_file_path}' not found during removal attempt.")
+        print(f"❌ ERROR: CSV file '{csv_file_path}' not found.")
         return False
     except Exception as e:
-        print(f"ERROR: Could not process CSV file '{csv_file_path}' for removal: {e}")
+        print(f"❌ ERROR: Failed to process CSV file '{csv_file_path}': {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def reset_token_specific_state():
@@ -526,11 +591,14 @@ async def listen_for_trades(mint_address_to_monitor):
 # --- Trade Logic ---
 async def trade_logic_and_price_display_loop():
     global g_baseline_price_usd, g_trade_status, g_buy_price_usd, g_token_name, g_current_mint_address, \
-           g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start, g_last_dex_price_fetch_time
+           g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start, g_last_dex_price_fetch_time, g_processing_token
 
     current_task_token_name = g_token_name
     current_task_mint_address = g_current_mint_address
     print(f"📈 Starting trade logic for {current_task_token_name or current_task_mint_address}")
+    
+    # Ensure processing flag is set when we start processing
+    g_processing_token = True
 
 
     try:
@@ -586,6 +654,7 @@ async def trade_logic_and_price_display_loop():
                 if g_buy_signal_detected and g_buy_price_usd is not None and usd_price_per_token is not None:
                     if usd_price_per_token >= g_buy_price_usd * TAKE_PROFIT_THRESHOLD_PERCENT:
                         print(f"✅ TAKE PROFIT for {current_task_token_name} at {usd_price_per_token:.9f} USD (Target: {g_buy_price_usd * TAKE_PROFIT_THRESHOLD_PERCENT:.9f}, Buy: {g_buy_price_usd:.9f} USD)")
+                        g_processing_token = False  # Mark processing as complete before raising
                         raise TokenProcessingComplete(
                             current_task_mint_address, 
                             "Take profit",
@@ -595,6 +664,7 @@ async def trade_logic_and_price_display_loop():
                     
                     if usd_price_per_token <= g_buy_price_usd * STOP_LOSS_THRESHOLD_PERCENT:
                         print(f"🛑 STOP LOSS for {current_task_token_name} at {usd_price_per_token:.9f} USD (Target: {g_buy_price_usd * STOP_LOSS_THRESHOLD_PERCENT:.9f}, Buy: {g_buy_price_usd:.9f} USD)")
+                        g_processing_token = False  # Mark processing as complete before raising
                         raise TokenProcessingComplete(
                             current_task_mint_address, 
                             "Stop loss",
@@ -602,51 +672,52 @@ async def trade_logic_and_price_display_loop():
                             sell_price=usd_price_per_token
                         )
 
-                # 3. Stagnation Check (applies whether buy signal occurred or not, based on baseline)
-                if usd_price_per_token is not None:
-                    if usd_price_per_token < g_baseline_price_usd * STAGNATION_PRICE_THRESHOLD_PERCENT:
-                        if g_stagnation_timer_start is None:
-                            g_stagnation_timer_start = current_time # Start timer
-                            print(f"📉 Price for {current_task_token_name} ({usd_price_per_token:.9f}) fell below stagnation threshold ({g_baseline_price_usd * STAGNATION_PRICE_THRESHOLD_PERCENT:.9f}). Stagnation timer started.")
-                        elif (current_time - g_stagnation_timer_start) > STAGNATION_TIMEOUT_SECONDS:
-                            print(f"⏳ STAGNATION TIMEOUT for {current_task_token_name}. Price ({usd_price_per_token:.9f}) remained below {g_baseline_price_usd * STAGNATION_PRICE_THRESHOLD_PERCENT:.9f} for {STAGNATION_TIMEOUT_SECONDS}s.")
-                            raise TokenProcessingComplete(
-                                current_task_mint_address, 
-                                "Stagnation timeout",
-                                sell_price=usd_price_per_token
-                            )
-                    else: # Price is above stagnation threshold
-                        if g_stagnation_timer_start is not None:
-                            print(f"📈 Price for {current_task_token_name} ({usd_price_per_token:.9f}) recovered above stagnation threshold. Resetting stagnation timer.")
-                            g_stagnation_timer_start = None # Reset timer if price recovers
-                elif g_stagnation_timer_start is None and (current_time - g_token_start_time) > STAGNATION_TIMEOUT_SECONDS: # No price data at all for stagnation period
-                     print(f"⏳ STAGNATION TIMEOUT for {current_task_token_name} due to no price data for {STAGNATION_TIMEOUT_SECONDS}s while monitoring baseline {g_baseline_price_usd:.9f}.")
-                     raise TokenProcessingComplete(
-                         current_task_mint_address, 
-                         "Stagnation timeout - no price data"
-                     )
+                # 3. Stagnation Check (only if buy signal was detected but no significant price movement)
+                if g_buy_signal_detected and usd_price_per_token is not None and \
+                   usd_price_per_token <= g_baseline_price_usd * STAGNATION_PRICE_THRESHOLD_PERCENT:
+                    if g_stagnation_timer_start is None:
+                        g_stagnation_timer_start = current_time
+                    elif (current_time - g_stagnation_timer_start) > STAGNATION_TIMEOUT_SECONDS:
+                        print(f"⏳ STAGNATION TIMEOUT for {current_task_token_name} at {usd_price_per_token:.9f} USD (Below {STAGNATION_PRICE_THRESHOLD_PERCENT*100:.0f}% of baseline: {g_baseline_price_usd:.9f} USD)")
+                        g_processing_token = False  # Mark processing as complete before raising
+                        raise TokenProcessingComplete(
+                            current_task_mint_address, 
+                            "Stagnation timeout",
+                            buy_price=g_buy_price_usd,
+                            sell_price=usd_price_per_token
+                        )
+                else:
+                    g_stagnation_timer_start = None  # Reset timer if price recovers
 
-            # Display current status (can be made more concise or less frequent)
+            # Status Display (every iteration, but throttled in the loop)
             if usd_price_per_token is not None:
-                status_msg = (f"[{time.strftime('%H:%M:%S')}] Status for {current_task_token_name}: "
-                              f"Price={usd_price_per_token:.9f} USD, "
-                              f"Baseline={g_baseline_price_usd:.9f} USD, "
-                              f"BuySignal={g_buy_signal_detected}")
-                if g_buy_price_usd:
-                    status_msg += f", BuyPrice={g_buy_price_usd:.9f} USD"
-                print(status_msg)
-            elif g_baseline_price_usd is None:
-                # print(f"Waiting for first trade data for {current_task_token_name} to set baseline...")
-                pass
+                status_line = f"🔍 {current_task_token_name or 'Loading...'} | "
+                status_line += f"${usd_price_per_token:.9f} | "
+                if g_buy_price_usd is not None:
+                    pnl_pct = ((usd_price_per_token - g_buy_price_usd) / g_buy_price_usd) * 100
+                    status_line += f"PnL: {pnl_pct:+.2f}% | "
+                status_line += f"Status: {g_trade_status.upper()}"
+                print(status_line)
 
-            await asyncio.sleep(TRADE_LOGIC_INTERVAL_SECONDS)
+            # Small delay to prevent CPU overuse
+            await asyncio.sleep(0.1)  # 100ms delay between iterations
+            
     except asyncio.CancelledError:
-        print(f"📈 Trade logic for {current_task_token_name} cancelled.")
+        print(f"📈 Trade logic task for {current_task_token_name} was cancelled.")
+        g_processing_token = False  # Ensure we reset the flag on cancellation
+        raise
+    except TokenProcessingComplete as e:
+        # The TokenProcessingComplete exception already handles logging and cleanup
+        g_processing_token = False  # Ensure we reset the flag when processing is complete
+        raise
+    except Exception as e:
+        print(f"❌ Error in trade logic for {current_task_token_name}: {e}")
+        g_processing_token = False  # Ensure we reset the flag on error
         raise
 
 # --- CSV Checker and Restart Trigger ---
 async def periodic_csv_checker():
-    global g_current_mint_address, g_token_name, g_current_tasks
+    global g_current_mint_address, g_token_name, g_current_tasks, g_processing_token
     
     address_being_monitored_by_this_task = g_current_mint_address 
     name_being_monitored_by_this_task = g_token_name
@@ -655,35 +726,32 @@ async def periodic_csv_checker():
         while True:
             await asyncio.sleep(CSV_CHECK_INTERVAL_SECONDS)
             
-            # This task might be for an "old" token if globals changed.
-            # Check if this checker instance is still relevant.
+            # Check if this checker instance is still relevant
             if g_current_mint_address != address_being_monitored_by_this_task:
                 print(f"📋 CSV checker for old token {name_being_monitored_by_this_task} is stale. Exiting task.")
-                return # Exit if this checker is for a token no longer actively monitored by main loop
+                return  # Exit if this checker is for a token no longer actively monitored
+                
+            # Skip checking if we're currently processing a token
+            if g_processing_token:
+                print(f"ℹ️ Currently processing {name_being_monitored_by_this_task}. Skipping CSV check...")
+                continue
 
             new_target_mint_address, new_target_token_name = load_token_from_csv(INPUT_CSV_FILE)
 
             if new_target_mint_address:
                 if new_target_mint_address != address_being_monitored_by_this_task:
-                    print(f"🔄 CSV Change Detected: New target '{new_target_token_name}' ({new_target_mint_address}). "
-                          f"Current is '{name_being_monitored_by_this_task}' ({address_being_monitored_by_this_task}). Triggering restart.")
-                    for task in g_current_tasks:
-                        if task is not asyncio.current_task():
-                            task.cancel()
-                    raise RestartRequired()
+                    print(f"ℹ️ New token detected: '{new_target_token_name}'. "
+                          f"Will process after current token '{name_being_monitored_by_this_task}' is complete.")
+                    # Don't trigger restart, just log the detection
             else: 
                 if address_being_monitored_by_this_task is not None:
-                    print(f"🔄 CSV Change Detected: No target token in CSV. "
-                          f"Previously monitoring '{name_being_monitored_by_this_task}' ({address_being_monitored_by_this_task}). Triggering stop/restart.")
-                    for task in g_current_tasks:
-                        if task is not asyncio.current_task():
-                            task.cancel()
-                    raise RestartRequired()
+                    print(f"ℹ️ No target token in CSV. Continuing with current token '{name_being_monitored_by_this_task}'.")
+
     except asyncio.CancelledError:
         print(f"📋 CSV checker for {name_being_monitored_by_this_task} cancelled.")
         raise
 
-
+# ... (rest of the code remains the same)
 # --- Main Runner ---
 async def main():
     global g_current_mint_address, g_token_name, g_current_tasks
@@ -779,6 +847,7 @@ async def main():
                 
                 g_current_mint_address = loaded_mint_address
                 g_token_name = loaded_token_name
+                g_processing_token = True  # Set flag when starting to process a token
                 
                 print(f"🚀 Initializing/Re-initializing monitoring for: {g_token_name} ({g_current_mint_address})")
                 reset_token_specific_state()
@@ -833,24 +902,42 @@ async def main():
                 await asyncio.gather(*active_tasks_to_await_cleanup, return_exceptions=True)
             
             g_current_tasks = [] # Clear tasks list for the next iteration
-            # Reset global state associated with the token that just finished. 
-            # load_token_from_csv and reset_token_specific_state will handle the next token.
-            g_current_mint_address = None 
-            g_token_name = None
-
-            if token_processing_outcome == 'restart_required':
-                print(f"INFO: Propagating RestartRequired for full script restart.")
-                raise RestartRequired() 
-            elif token_processing_outcome == 'completed' or token_processing_outcome == 'error':
-                reason_for_cycle = token_processing_outcome if token_processing_outcome else "unknown reasons"
-                print(f"INFO: Cycling to next token after '{reason_for_cycle}' for {processed_token_name or processed_token_mint_address}.")
-                await asyncio.sleep(0.1) # Brief pause before reloading CSV
-                continue # To the start of the main while True loop to load next token
-            else: # No specific outcome (e.g., tasks finished without exceptions, or g_current_tasks was empty)
-                  # This path might also be taken if all tasks were cancelled externally before gather completed
-                # print(f"DEBUG: No specific token outcome for {processed_token_name}, proceeding in main loop.")
-                await asyncio.sleep(0.1) # Brief pause
-                continue 
+            
+            # Handle token processing outcome
+            if token_processing_outcome == 'completed' or token_processing_outcome == 'error':
+                reason = token_processing_outcome if token_processing_outcome else "unknown reason"
+                print(f"ℹ️ Token processing complete with status: {reason} for {processed_token_name or processed_token_mint_address}")
+                
+                # Remove the processed token from CSV
+                if processed_token_mint_address:
+                    print(f"🗑️ Removing processed token {processed_token_name or processed_token_mint_address} from CSV")
+                    remove_token_from_csv(processed_token_mint_address, INPUT_CSV_FILE)
+                
+                # Reset global state before restarting
+                g_current_mint_address = None
+                g_token_name = None
+                reset_token_specific_state()
+                
+                print("\n" + "="*50)
+                print(f"ℹ️  Token processing complete for {processed_token_mint_address}")
+                print("="*50 + "\n")
+                
+                # Small delay to ensure all resources are released
+                await asyncio.sleep(2)
+                
+                # Restart SniperX V2 to process next token
+                print("🔄 Preparing to restart SniperX V2 to process next token...")
+                
+                # Use os._exit to ensure a clean restart
+                python = sys.executable
+                os.execl(python, python, os.path.join(SCRIPT_DIR, 'SniperX V2.py'))
+                return
+                
+            # Reset state for next iteration
+            current_token = None
+            g_processing_token = False
+            print("ℹ️ No active token to process. Waiting for new token...")
+            await asyncio.sleep(5)  # Small delay before next check
 
     except KeyboardInterrupt:
         print("\n📉 Monitoring stopped by user (KeyboardInterrupt).")

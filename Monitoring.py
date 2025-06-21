@@ -910,12 +910,17 @@ async def main():
             # Handle token processing outcome
             if token_processing_outcome == 'completed' or token_processing_outcome == 'error':
                 reason = token_processing_outcome if token_processing_outcome else "unknown reason"
-                print(f"ℹ️ Token processing complete with status: {reason} for {processed_token_name or processed_token_mint_address}")
+                # processed_token_name and processed_token_mint_address are assumed to be captured earlier in main()
+                # e.g., processed_token_mint_address = g_current_mint_address
+                #       processed_token_name = g_token_name
                 
-                # Remove the processed token from CSV
+                print(f"ℹ️ Token processing complete with status: {{reason}} for {{processed_token_name or processed_token_mint_address or 'N/A'}}")
+                
+                removal_successful = False # Initialize
                 if processed_token_mint_address:
-                    print(f"🗑️ Removing processed token {processed_token_name or processed_token_mint_address} from CSV")
-                    remove_token_from_csv(processed_token_mint_address, INPUT_CSV_FILE)
+                    print(f"🗑️ Attempting to remove processed token {{processed_token_name or processed_token_mint_address}} from CSV...")
+                    # INPUT_CSV_FILE is assumed to be defined
+                    removal_successful = remove_token_from_csv(processed_token_mint_address, INPUT_CSV_FILE)
                 
                 # Reset global state before restarting
                 g_current_mint_address = None
@@ -929,48 +934,13 @@ async def main():
                 # Small delay to ensure all resources are released
                 await asyncio.sleep(2)
                 
-                # Remove from opened_tokens.txt if exists
-                opened_tokens_path = os.path.join(SCRIPT_DIR, 'opened_tokens.txt')
-                if os.path.exists(opened_tokens_path):
-                    try:
-                        with open(opened_tokens_path, 'r') as f:
-                            tokens = [line.strip() for line in f.readlines() if line.strip()]
-                        
-                        if processed_token_mint_address in tokens:
-                            tokens.remove(processed_token_mint_address)
-                            with open(opened_tokens_path, 'w') as f:
-                                f.write('\n'.join(tokens) + '\n')
-                            print(f"✅ Removed token {processed_token_mint_address} from opened_tokens.txt")
-                    except Exception as e:
-                        print(f"⚠️ Failed to update opened_tokens.txt: {e}")
-                
-                # Clean up lock file
-                if os.path.exists(LOCK_FILE_PATH):
-                    try:
-                        os.remove(LOCK_FILE_PATH)
-                        print(f"✅ Removed lock file: {LOCK_FILE_PATH}")
-                    except Exception as e:
-                        print(f"⚠️ Failed to remove lock file: {e}")
-                
                 # Restart SniperX V2 to process next token
-                print("🔄 Restarting SniperX V2 to process next token...")
+                print("🔄 Preparing to restart SniperX V2 to process next token...")
                 
-                # Ensure all resources are released
-                await asyncio.sleep(1)
-                
-                # Start new process first
+                # Use os._exit to ensure a clean restart
                 python = sys.executable
-                script_path = os.path.join(SCRIPT_DIR, 'SniperX V2.py')
-                
-                if os.name == 'nt':  # Windows
-                    subprocess.Popen([python, script_path], 
-                                  creationflags=subprocess.CREATE_NEW_CONSOLE)
-                else:  # Unix/Linux/Mac
-                    subprocess.Popen([python, script_path],
-                                  start_new_session=True)
-                
-                # Then exit current process
-                os._exit(0)
+                os.execl(python, python, os.path.join(SCRIPT_DIR, 'SniperX V2.py'))
+                return
                 
             # Reset state for next iteration
             current_token = None

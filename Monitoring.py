@@ -171,32 +171,14 @@ class TokenProcessingComplete(Exception):
         self.reason = reason
         self.buy_price = buy_price
         self.sell_price = sell_price
-        
-        # Log the trade result
+
+        super().__init__(f"Token processing complete for {mint_address}: {reason}")
+
+        # Log the trade result once the token lifecycle finishes
         log_trade_result(g_token_name, mint_address, reason, buy_price, sell_price)
-        
-        # Get the CSV file path
-        csv_file_path = os.environ.get('TOKEN_RISK_ANALYSIS_CSV')
-        if not csv_file_path:
-            csv_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'token_risk_analysis.csv')
-        
-        # Remove the token from the CSV file
-        token_removed = remove_token_from_csv(mint_address, csv_file_path)
-        
-        if not token_removed:
-            print(f"⚠️ Could not remove token {mint_address} from CSV. It may be processed again.")
-        
-        print(f"🔄 Token processing complete. Restarting SniperX V2...")
-        
-        # Attempt to restart SniperX V2
-        if restart_sniperx_v2():
-            # If restart was successful, the process will exit before reaching here
-            pass
-        else:
-            # If restart failed, raise the exception with the original message
-            super().__init__(f"Token processing complete for {mint_address}: {reason}")
-            # Still exit to ensure clean state
-            sys.exit(0)
+
+        # Inform the main loop to continue processing without exiting
+        print(f"🔄 Token processing complete for {mint_address}. Ready for next token.")
 
 # --- Token Lifecycle Configuration ---
 TAKE_PROFIT_THRESHOLD_PERCENT = 1.10  # e.g., 10% profit

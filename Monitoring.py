@@ -906,33 +906,48 @@ async def main():
             # Handle token processing outcome
             if token_processing_outcome == 'completed' or token_processing_outcome == 'error':
                 reason = token_processing_outcome if token_processing_outcome else "unknown reason"
-                print(f"ℹ️ Token processing complete with status: {reason} for {processed_token_name or processed_token_mint_address}")
+                # processed_token_name and processed_token_mint_address are assumed to be captured earlier in main()
+                # e.g., processed_token_mint_address = g_current_mint_address
+                #       processed_token_name = g_token_name
                 
-                # Remove the processed token from CSV
+                print(f"ℹ️ Token processing complete with status: {{reason}} for {{processed_token_name or processed_token_mint_address or 'N/A'}}")
+                
+                removal_successful = False # Initialize
                 if processed_token_mint_address:
-                    print(f"🗑️ Removing processed token {processed_token_name or processed_token_mint_address} from CSV")
-                    remove_token_from_csv(processed_token_mint_address, INPUT_CSV_FILE)
+                    print(f"🗑️ Attempting to remove processed token {{processed_token_name or processed_token_mint_address}} from CSV...")
+                    # INPUT_CSV_FILE is assumed to be defined
+                    removal_successful = remove_token_from_csv(processed_token_mint_address, INPUT_CSV_FILE)
                 
-                # Reset global state before restarting
-                g_current_mint_address = None
-                g_token_name = None
-                reset_token_specific_state()
-                
-                print("\n" + "="*50)
-                print(f"ℹ️  Token processing complete for {processed_token_mint_address}")
-                print("="*50 + "\n")
-                
-                # Small delay to ensure all resources are released
-                await asyncio.sleep(2)
-                
-                # Restart SniperX V2 to process next token
-                print("🔄 Preparing to restart SniperX V2 to process next token...")
-                
-                # Use os._exit to ensure a clean restart
-                python = sys.executable
-                os.execl(python, python, os.path.join(SCRIPT_DIR, 'SniperX V2.py'))
-                return
-                
+                if removal_successful:
+                    print(f"✅ Token {{processed_token_name or processed_token_mint_address}} confirmed removed from CSV.")
+                    g_current_mint_address = None
+                    g_token_name = None
+                    reset_token_specific_state()
+
+                    print("\n" + "="*50)
+                    print(f"ℹ️  Token processing complete for {{processed_token_mint_address}}. Preparing for SniperX V2 restart.")
+                    print("="*50 + "\n")
+
+                    await asyncio.sleep(2)
+
+                    print("🔄 Restarting SniperX V2 to process next token...")
+                    python = sys.executable
+                    # SCRIPT_DIR is assumed to be globally defined in Monitoring.py
+                    sniperx_v2_path = os.path.join(SCRIPT_DIR, 'SniperX V2.py')
+                    os.execl(python, python, sniperx_v2_path)
+                    return # For logical clarity, though execl doesn't return on success
+                else:
+                    if processed_token_mint_address:
+                        print(f"❌ CRITICAL: Failed to remove token {{processed_token_name or processed_token_mint_address}} from CSV (removal_successful={{removal_successful}}).")
+                        print(f"❌ CRITICAL: SniperX V2 will NOT be restarted by this Monitoring.py instance (PID: {{os.getpid()}}) to prevent re-processing loop.")
+                        print("❌ CRITICAL: Please check CSV integrity and the 'remove_token_from_csv' function's logs/behavior.")
+                    else:
+                        print(f"⚠️ Token processing outcome was '{{reason}}', but no specific token address was available for removal, or removal was not attempted.")
+                        print(f"⚠️ SniperX V2 will NOT be restarted by this Monitoring.py instance (PID: {{os.getpid()}}) under these conditions.")
+
+                    print(f"🛑 Monitoring.py instance (PID: {{os.getpid()}}) shutting down due to token removal failure or lack of token to remove.")
+                    return # Exit main(), preventing restart by this instance
+
             # Reset state for next iteration
             current_token = None
             g_processing_token = False

@@ -868,32 +868,39 @@ async def main():
             processed_token_name = g_token_name
             
             if g_current_tasks:
-                results = await asyncio.gather(*g_current_tasks, return_exceptions=True)
+                done, pending = await asyncio.wait(
+                    g_current_tasks,
+                    return_when=asyncio.FIRST_COMPLETED
+                )
 
-                for res_idx, result in enumerate(results):
-                    current_task_obj = g_current_tasks[res_idx] if res_idx < len(g_current_tasks) else None
-                    task_name_for_log = current_task_obj.get_name() if hasattr(current_task_obj, 'get_name') else f"Task-{res_idx}"
+                for task in pending:
+                    task.cancel()
+
+                await asyncio.gather(*pending, return_exceptions=True)
+
+                for finished_task in done:
+                    task_name_for_log = finished_task.get_name() if hasattr(finished_task, 'get_name') else 'Task'
+                    if finished_task.cancelled():
+                        result = asyncio.CancelledError()
+                    else:
+                        exc = finished_task.exception()
+                        result = exc if exc is not None else finished_task.result()
 
                     if isinstance(result, TokenProcessingComplete):
                         print(f"✅ Token processing complete for {result.mint_address or processed_token_name}: {result.reason}")
                         remove_token_from_csv(result.mint_address or processed_token_mint_address, INPUT_CSV_FILE)
                         token_processing_outcome = 'completed'
-                        break 
+                        break
                     elif isinstance(result, RestartRequired):
                         print(f"🔄 RestartRequired signal received from task '{task_name_for_log}' for token {processed_token_name}.")
                         token_processing_outcome = 'restart_required'
                         break
                     elif isinstance(result, asyncio.CancelledError):
-                        # This is often an expected outcome if another task triggered completion/restart
-                        # print(f"DEBUG: Task '{task_name_for_log}' for {processed_token_name} was cancelled.")
-                        pass 
+                        # Expected if another task triggered completion
+                        pass
                     elif isinstance(result, Exception):
                         print(f"💥 Unexpected error in task '{task_name_for_log}' for token {processed_token_name}: {result}")
-                        # import traceback # Already imported at top level if needed elsewhere
-                        # traceback.print_exc() # Consider logging level for this
                         token_processing_outcome = 'error'
-                        # Decide if token should be removed on generic error to prevent loops
-                        # print(f"INFO: Token {processed_token_mint_address} will be retried or re-evaluated. Not removing from CSV on generic error.")
                         break
             
             # Cleanup tasks for the token that was just processed (or attempted)

@@ -318,7 +318,22 @@ def run_full_risk_analysis():
 
             logging.info(f"Successfully wrote {len(results_to_write)} processed token entries to {OUTPUT_RISK_ANALYSIS_CSV} and {FILTERED_TOKENS_WITH_ALL_RISKS_CSV}")
             
-            # Verify the files were written correctly
+            # Clean up input files
+            try:
+                # Remove processed tokens from sniperx_results_1m.csv
+                if os.path.exists(INPUT_TOKENS_CSV):
+                    os.remove(INPUT_TOKENS_CSV)
+                    logging.info(f"Removed processed tokens from {INPUT_TOKENS_CSV}")
+                
+                # Clean up cluster_summaries.csv
+                if os.path.exists(CLUSTER_SUMMARY_CSV):
+                    os.remove(CLUSTER_SUMMARY_CSV)
+                    logging.info(f"Cleaned up {CLUSTER_SUMMARY_CSV}")
+                
+            except Exception as cleanup_error:
+                logging.error(f"Error cleaning up input files: {cleanup_error}")
+            
+            # Verify the output files were written correctly
             try:
                 with open(OUTPUT_RISK_ANALYSIS_CSV, 'r', encoding='utf-8') as f:
                     lines = f.readlines()
@@ -331,7 +346,7 @@ def run_full_risk_analysis():
                 logging.error(f"Error verifying output files: {verify_error}")
                 
         except Exception as e:
-            logging.error(f"Error writing risk analysis to files: {e}", exc_info=True)
+            logging.error(f"Error in file operations: {e}", exc_info=True)
     else:
         logging.info("No token data processed to write.")
         

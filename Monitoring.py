@@ -614,7 +614,8 @@ async def listen_for_trades(mint_address_to_monitor):
 # --- Trade Logic ---
 async def trade_logic_and_price_display_loop():
     global g_baseline_price_usd, g_trade_status, g_buy_price_usd, g_token_name, g_current_mint_address, \
-           g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start, g_last_dex_price_fetch_time, g_processing_token
+           g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start, g_last_dex_price_fetch_time, \
+           g_processing_token, g_partial_take_profit_logged
 
     current_task_token_name = g_token_name
     current_task_mint_address = g_current_mint_address
@@ -683,6 +684,7 @@ async def trade_logic_and_price_display_loop():
                     # Partial take profit
                     if not g_partial_take_profit_logged and usd_price_per_token >= g_buy_price_usd * PARTIAL_TAKE_PROFIT_PERCENT:
                         g_partial_take_profit_logged = True
+                        # Only log partial take profit here - TokenProcessingComplete will handle final logging
                         log_trade_result(current_task_token_name, current_task_mint_address, "Partial take profit", g_buy_price_usd, usd_price_per_token)
 
                     # Final take profit
@@ -690,10 +692,10 @@ async def trade_logic_and_price_display_loop():
                         print(f"✅ TAKE PROFIT for {current_task_token_name} at {usd_price_per_token:.9f} USD (Target: {g_buy_price_usd * TAKE_PROFIT_THRESHOLD_PERCENT:.9f}, Buy: {g_buy_price_usd:.9f} USD)")
                         g_processing_token = False  # Mark processing as complete before raising
                         raise TokenProcessingComplete(
-                            current_task_mint_address,
+                            current_task_mint_address, 
                             "Take profit",
-                            buy_price=g_buy_price_usd,
-                            sell_price=usd_price_per_token
+                            g_buy_price_usd,
+                            usd_price_per_token
                         )
 
                     # Static stop loss
@@ -967,43 +969,29 @@ async def main():
                 # e.g., processed_token_mint_address = g_current_mint_address
                 #       processed_token_name = g_token_name
                 
-                print(f"ℹ️ Token processing complete with status: {{reason}} for {{processed_token_name or processed_token_mint_address or 'N/A'}}")
+                token_display_name = processed_token_name or processed_token_mint_address or 'N/A'
+                print(f"ℹ️ Token processing complete with status: {reason} for {token_display_name}")
                 
                 removal_successful = False # Initialize
                 if processed_token_mint_address:
-                    print(f"🗑️ Attempting to remove processed token {{processed_token_name or processed_token_mint_address}} from CSV...")
-                    # INPUT_CSV_FILE is assumed to be defined
+                    print(f"🗑️ Attempting to remove processed token {token_display_name} from CSV...")
                     removal_successful = remove_token_from_csv(processed_token_mint_address, INPUT_CSV_FILE)
                 
-                # Reset global state before restarting
-                g_current_mint_address = None
-                g_token_name = None
-                reset_token_specific_state()
-                
                 print("\n" + "="*50)
-                print(f"ℹ️  Token processing complete for {processed_token_mint_address}")
+                print(f"ℹ️  Token processing complete for {token_display_name}")
                 print("="*50 + "\n")
                 
-                # Small delay to ensure all resources are released
-                await asyncio.sleep(2)
-                
-                # Reset state and continue to next token
-                print("🔄 Resetting state for next token...")
+                # Reset global state
                 g_current_mint_address = None
                 g_token_name = None
                 reset_token_specific_state()
                 
-                # Small delay before checking for next token
-                await asyncio.sleep(2)
-                continue
+                # Small delay to ensure all resources are released
+                await asyncio.sleep(1)
                 
-            # Reset state for next iteration
-            current_token = None
-            g_processing_token = False
-            reset_token_specific_state()
-            
-            # Check for new tokens more frequently when idle
-            print("ℹ️ No active token to process. Checking for new tokens...")
+                # Continue to next token
+                print("ℹ️ No active token to process. Checking for new tokens...")
+                
             await asyncio.sleep(2)  # Reduced delay for more responsive checking
 
     except KeyboardInterrupt:

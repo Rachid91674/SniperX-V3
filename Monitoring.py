@@ -22,10 +22,17 @@ INPUT_CSV_FILE = os.environ.get(
     "TOKEN_RISK_ANALYSIS_CSV",
     str(SCRIPT_DIR / "token_risk_analysis.csv"),
 )
-SOL_PRICE_UPDATE_INTERVAL_SECONDS = 30
-TRADE_LOGIC_INTERVAL_SECONDS = 1
-CSV_CHECK_INTERVAL_SECONDS = 10  # How often to check the CSV for changes
-DEXSCREENER_PRICE_UPDATE_INTERVAL_SECONDS = 1  # How often to fetch price from Dexscreener when no trades
+SOL_PRICE_UPDATE_INTERVAL_SECONDS = 15
+TRADE_LOGIC_INTERVAL_SECONDS = 0.05
+CSV_CHECK_INTERVAL_SECONDS = 5  # How often to check the CSV for changes
+DEXSCREENER_PRICE_UPDATE_INTERVAL_SECONDS = 0.5  # How often to fetch price from Dexscreener when no trades
+
+# Minimum liquidity requirement when loading tokens from the CSV
+MIN_LIQUIDITY_USD = 10000.0
+
+# Trailing stop and partial take profit configuration
+TRAILING_STOP_THRESHOLD_PERCENT = 0.90  # Exit if price drops 10% from peak after buy
+PARTIAL_TAKE_PROFIT_PERCENT = 1.05      # Log partial profit after 5% gain
 # STATUS_PRINT_INTERVAL_SECONDS removed (status now prints every loop iteration)
 
 # --- Global State Variables ---
@@ -39,6 +46,8 @@ g_token_name = None
 g_baseline_price_usd = None
 g_trade_status = 'monitoring'  # Initial status
 g_buy_price_usd = None
+g_highest_price_usd = None
+g_partial_take_profit_logged = False
 
 g_current_tasks = []  # Holds tasks like listener, trader, csv_checker for cancellation
 g_processing_token = False  # Tracks if we're currently processing a token
@@ -238,8 +247,9 @@ def load_token_from_csv(csv_file_path):
                 print(f"DEBUG: Token: {row.get('Name', 'N/A')} | Address: {mint_address}")
 
                 # Get price impact from either column name variant
-                price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent', 
+                price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent',
                                          row.get('Price_Impact_Cluster_Sell_Percent_', '')).strip()
+                liquidity_str = row.get('DexScreener_Liquidity_USD', row.get('Liquidity(1m)', '')).replace(',', '').strip()
                 
                 print(f"DEBUG: Raw price impact string: '{price_impact_str}'")
                 
@@ -254,11 +264,19 @@ def load_token_from_csv(csv_file_path):
                 else:
                     print(f"WARNING: Empty or N/A price impact value")
 
+                liquidity_val = 0.0
+                if liquidity_str and liquidity_str.upper() != 'N/A':
+                    try:
+                        liquidity_val = float(liquidity_str)
+                    except (ValueError, TypeError):
+                        liquidity_val = 0.0
+
                 print(f"DEBUG: Checking if token passes filters...")
                 print(f"DEBUG: - Has address: {bool(mint_address)}")
                 print(f"DEBUG: - Price impact {price_impact_val}% < {PRICE_IMPACT_THRESHOLD_MONITOR}%: {price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR}")
+                print(f"DEBUG: - Liquidity ${liquidity_val} >= {MIN_LIQUIDITY_USD}: {liquidity_val >= MIN_LIQUIDITY_USD}")
 
-                if mint_address and price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR:
+                if mint_address and price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR and liquidity_val >= MIN_LIQUIDITY_USD:
                     token_name_from_row = row.get('Name', '').strip()
                     latest_mint_address = mint_address
                     latest_token_name = token_name_from_row if token_name_from_row else mint_address
@@ -269,6 +287,8 @@ def load_token_from_csv(csv_file_path):
                         reason.append("missing address")
                     if price_impact_val >= PRICE_IMPACT_THRESHOLD_MONITOR:
                         reason.append(f"price impact {price_impact_val}% >= {PRICE_IMPACT_THRESHOLD_MONITOR}%")
+                    if liquidity_val < MIN_LIQUIDITY_USD:
+                        reason.append(f"liquidity {liquidity_val} < {MIN_LIQUIDITY_USD}")
                     print(f"❌ DEBUG: Token REJECTED: {', '.join(reason)}")
             
             if latest_mint_address:
@@ -392,12 +412,15 @@ def remove_token_from_csv(mint_address_to_remove: str, csv_file_path: str) -> bo
 def reset_token_specific_state():
     """Resets global variables specific to the currently monitored token."""
     global g_latest_trade_data, g_baseline_price_usd, g_trade_status, g_buy_price_usd, \
-           g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start
+           g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start, \
+           g_highest_price_usd, g_partial_take_profit_logged
     
     g_latest_trade_data.clear()
     g_baseline_price_usd = None
     g_trade_status = 'monitoring' # Reset to initial status
     g_buy_price_usd = None
+    g_highest_price_usd = None
+    g_partial_take_profit_logged = False
     g_token_start_time = time.time()
     g_buy_signal_detected = False
     g_stagnation_timer_start = None
@@ -639,8 +662,9 @@ async def trade_logic_and_price_display_loop():
                 if not g_buy_signal_detected:
                     if usd_price_per_token is not None and usd_price_per_token > g_baseline_price_usd * BUY_SIGNAL_PRICE_INCREASE_PERCENT:
                         g_buy_signal_detected = True
-                        g_buy_price_usd = usd_price_per_token # Set buy price at the point of signal
-                        g_trade_status = 'bought' # Update status
+                        g_buy_price_usd = usd_price_per_token  # Set buy price at the point of signal
+                        g_highest_price_usd = g_buy_price_usd  # Initialize trailing stop reference
+                        g_trade_status = 'bought'  # Update status
                         print(f"🚨 BUY SIGNAL DETECTED for {current_task_token_name} at {g_buy_price_usd:.9f} USD (Baseline: {g_baseline_price_usd:.9f} USD)")
                     elif (current_time - g_token_start_time) > NO_BUY_SIGNAL_TIMEOUT_SECONDS:
                         print(f"⏳ NO BUY SIGNAL timeout for {current_task_token_name} after {NO_BUY_SIGNAL_TIMEOUT_SECONDS}s. Baseline: {g_baseline_price_usd:.9f} USD.")
@@ -652,22 +676,44 @@ async def trade_logic_and_price_display_loop():
 
                 # 2. Take Profit / Stop Loss Checks (only if buy signal was detected)
                 if g_buy_signal_detected and g_buy_price_usd is not None and usd_price_per_token is not None:
+                    # Update trailing high
+                    if g_highest_price_usd is None or usd_price_per_token > g_highest_price_usd:
+                        g_highest_price_usd = usd_price_per_token
+
+                    # Partial take profit
+                    if not g_partial_take_profit_logged and usd_price_per_token >= g_buy_price_usd * PARTIAL_TAKE_PROFIT_PERCENT:
+                        g_partial_take_profit_logged = True
+                        log_trade_result(current_task_token_name, current_task_mint_address, "Partial take profit", g_buy_price_usd, usd_price_per_token)
+
+                    # Final take profit
                     if usd_price_per_token >= g_buy_price_usd * TAKE_PROFIT_THRESHOLD_PERCENT:
                         print(f"✅ TAKE PROFIT for {current_task_token_name} at {usd_price_per_token:.9f} USD (Target: {g_buy_price_usd * TAKE_PROFIT_THRESHOLD_PERCENT:.9f}, Buy: {g_buy_price_usd:.9f} USD)")
                         g_processing_token = False  # Mark processing as complete before raising
                         raise TokenProcessingComplete(
-                            current_task_mint_address, 
+                            current_task_mint_address,
                             "Take profit",
                             buy_price=g_buy_price_usd,
                             sell_price=usd_price_per_token
                         )
-                    
+
+                    # Static stop loss
                     if usd_price_per_token <= g_buy_price_usd * STOP_LOSS_THRESHOLD_PERCENT:
                         print(f"🛑 STOP LOSS for {current_task_token_name} at {usd_price_per_token:.9f} USD (Target: {g_buy_price_usd * STOP_LOSS_THRESHOLD_PERCENT:.9f}, Buy: {g_buy_price_usd:.9f} USD)")
-                        g_processing_token = False  # Mark processing as complete before raising
+                        g_processing_token = False
                         raise TokenProcessingComplete(
-                            current_task_mint_address, 
+                            current_task_mint_address,
                             "Stop loss",
+                            buy_price=g_buy_price_usd,
+                            sell_price=usd_price_per_token
+                        )
+
+                    # Trailing stop based on highest price reached
+                    if g_highest_price_usd and usd_price_per_token <= g_highest_price_usd * TRAILING_STOP_THRESHOLD_PERCENT:
+                        print(f"🛑 TRAILING STOP for {current_task_token_name} at {usd_price_per_token:.9f} USD (Peak: {g_highest_price_usd:.9f} USD)")
+                        g_processing_token = False
+                        raise TokenProcessingComplete(
+                            current_task_mint_address,
+                            "Trailing stop",
                             buy_price=g_buy_price_usd,
                             sell_price=usd_price_per_token
                         )
@@ -700,7 +746,7 @@ async def trade_logic_and_price_display_loop():
                 print(status_line)
 
             # Small delay to prevent CPU overuse
-            await asyncio.sleep(0.1)  # 100ms delay between iterations
+            await asyncio.sleep(TRADE_LOGIC_INTERVAL_SECONDS)
             
     except asyncio.CancelledError:
         print(f"📈 Trade logic task for {current_task_token_name} was cancelled.")

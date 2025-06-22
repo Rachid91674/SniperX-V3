@@ -941,19 +941,24 @@ async def main():
                 # Small delay to ensure all resources are released
                 await asyncio.sleep(2)
                 
-                # Restart SniperX V2 to process next token
-                print("🔄 Preparing to restart SniperX V2 to process next token...")
+                # Reset state and continue to next token
+                print("🔄 Resetting state for next token...")
+                g_current_mint_address = None
+                g_token_name = None
+                reset_token_specific_state()
                 
-                # Use os._exit to ensure a clean restart
-                python = sys.executable
-                os.execl(python, python, os.path.join(SCRIPT_DIR, 'SniperX V2.py'))
-                return
+                # Small delay before checking for next token
+                await asyncio.sleep(2)
+                continue
                 
             # Reset state for next iteration
             current_token = None
             g_processing_token = False
-            print("ℹ️ No active token to process. Waiting for new token...")
-            await asyncio.sleep(5)  # Small delay before next check
+            reset_token_specific_state()
+            
+            # Check for new tokens more frequently when idle
+            print("ℹ️ No active token to process. Checking for new tokens...")
+            await asyncio.sleep(2)  # Reduced delay for more responsive checking
 
     except KeyboardInterrupt:
         print("\n📉 Monitoring stopped by user (KeyboardInterrupt).")

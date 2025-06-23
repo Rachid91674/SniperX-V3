@@ -613,6 +613,13 @@ async def listen_for_trades(mint_address_to_monitor):
 
 # --- Trade Logic ---
 async def trade_logic_and_price_display_loop():
+    """Main loop evaluating buy/sell conditions and showing live price.
+
+    A price increase above ``BUY_SIGNAL_PRICE_INCREASE_PERCENT`` only triggers a
+    buy signal if Dexscreener reports higher buy volume than sell volume and
+    more buy trades than sell trades. Both volume values must also be non zero.
+    """
+
     global g_baseline_price_usd, g_trade_status, g_buy_price_usd, g_token_name, g_current_mint_address, \
            g_token_start_time, g_buy_signal_detected, g_stagnation_timer_start, g_last_dex_price_fetch_time, \
            g_processing_token, g_partial_take_profit_logged
@@ -633,6 +640,7 @@ async def trade_logic_and_price_display_loop():
 
             current_time = time.time()
             usd_price_per_token = None
+            dex_buy_volume = dex_sell_volume = dex_buys = dex_sells = None
             
             # --------------- Price Determination ---------------
             # 1) Preferred: price from the most recent trade (if any)
@@ -645,11 +653,16 @@ async def trade_logic_and_price_display_loop():
                     usd_price_per_token = sol_price_per_token * g_last_known_sol_price
 
             # 2) Fallback: query Dexscreener if we still have no price and enough time passed
+            #    Also captures buy/sell volume information for filtering buy signals
             if usd_price_per_token is None and (current_time - g_last_dex_price_fetch_time) > DEXSCREENER_PRICE_UPDATE_INTERVAL_SECONDS:
                 loop = asyncio.get_running_loop()
                 dex_data = await loop.run_in_executor(None, get_dexscreener_data, current_task_mint_address)
                 if dex_data and dex_data.get("price"):
                     usd_price_per_token = float(dex_data["price"])
+                    dex_buy_volume = dex_data.get("buy_volume")
+                    dex_sell_volume = dex_data.get("sell_volume")
+                    dex_buys = dex_data.get("buys")
+                    dex_sells = dex_data.get("sells")
                 g_last_dex_price_fetch_time = current_time
 
             # --- Initial Baseline Price Setting ---
@@ -662,11 +675,26 @@ async def trade_logic_and_price_display_loop():
                 # 1. No Buy Signal Timeout Check
                 if not g_buy_signal_detected:
                     if usd_price_per_token is not None and usd_price_per_token > g_baseline_price_usd * BUY_SIGNAL_PRICE_INCREASE_PERCENT:
-                        g_buy_signal_detected = True
-                        g_buy_price_usd = usd_price_per_token  # Set buy price at the point of signal
-                        g_highest_price_usd = g_buy_price_usd  # Initialize trailing stop reference
-                        g_trade_status = 'bought'  # Update status
-                        print(f"🚨 BUY SIGNAL DETECTED for {current_task_token_name} at {g_buy_price_usd:.9f} USD (Baseline: {g_baseline_price_usd:.9f} USD)")
+                        if (
+                            dex_buy_volume is not None and dex_sell_volume is not None and
+                            dex_buys is not None and dex_sells is not None and
+                            dex_buy_volume > 0 and dex_sell_volume > 0 and
+                            dex_buy_volume > dex_sell_volume and dex_buys > dex_sells
+                        ):
+                            g_buy_signal_detected = True
+                            g_buy_price_usd = usd_price_per_token  # Set buy price at the point of signal
+                            g_highest_price_usd = g_buy_price_usd  # Initialize trailing stop reference
+                            g_trade_status = 'bought'  # Update status
+                            print(
+                                f"🚨 BUY SIGNAL DETECTED for {current_task_token_name} at {g_buy_price_usd:.9f} USD "
+                                f"(Baseline: {g_baseline_price_usd:.9f} USD)"
+                            )
+                        else:
+                            print(
+                                f"ℹ️ Buy signal skipped for {current_task_token_name}: "
+                                f"buys={dex_buys}, sells={dex_sells}, "
+                                f"buy_volume={dex_buy_volume}, sell_volume={dex_sell_volume}"
+                            )
                     elif (current_time - g_token_start_time) > NO_BUY_SIGNAL_TIMEOUT_SECONDS:
                         print(f"⏳ NO BUY SIGNAL timeout for {current_task_token_name} after {NO_BUY_SIGNAL_TIMEOUT_SECONDS}s. Baseline: {g_baseline_price_usd:.9f} USD.")
                         raise TokenProcessingComplete(

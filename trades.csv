@@ -63,3 +63,5 @@ timestamp,token_name,mint_address,reason,buy_price,sell_price
 "2025-06-23 17:02:47","Manhattan Project","4dmQFkCM1WiUhC75UndLkmMtWj78fQJUvfc4xpMLpump","Stop loss","0.000145400","0.000102500","-29.50%","LOSS"
 "2025-06-23 17:23:00","Unknown","81tHLbPqPB1VggsMKHs726PPbSTtWX1vbgMdKQAUj4AB","Stop loss","0.000036010","0.000034160","-5.14%","LOSS"
 "2025-06-23 17:24:37","Unknown","9SXmmLfYPLYffQjaHd9oKP6biPoNbG7yVoFmmks7a1HJ","Stop loss","0.000087290","0.000079880","-8.49%","LOSS"
+"2025-06-23 17:33:53","Agent Heroes AI","F7vR621r98H5ppuUH1VCeErLpZSPMznmQfFkssCDpump","Partial take profit","0.000111400","0.000126300","13.38%","PROFIT"
+"2025-06-23 17:33:53","Agent Heroes AI","F7vR621r98H5ppuUH1VCeErLpZSPMznmQfFkssCDpump","Take profit","0.000111400","0.000126300","13.38%","PROFIT"

@@ -530,14 +530,30 @@ if __name__ == "__main__":
         
     monitoring_lock_file_path = os.path.join(SCRIPT_DIRECTORY, "monitoring_active.lock")
     check_interval_seconds = 3  # Short pause between lock checks
+    last_processed_token = None
     try:
         while True:
+            # Check if we need to process a new token
+            current_time = time.time()
+            
+            # If monitoring is active, check if we need to force a restart
             if os.path.exists(monitoring_lock_file_path):
-                logging.info(
-                    f"Monitoring.py is active (lock file found: {monitoring_lock_file_path}). SniperX V2 pausing for {check_interval_seconds} seconds..."
-                )
-                time.sleep(check_interval_seconds)
-                continue
+                # If monitoring has been active for too long (5 minutes), force a restart
+                lock_file_age = current_time - os.path.getmtime(monitoring_lock_file_path)
+                if lock_file_age > 300:  # 5 minutes
+                    logging.warning(f"Monitoring has been active for too long ({lock_file_age:.0f}s). Forcing restart...")
+                    try:
+                        os.remove(monitoring_lock_file_path)
+                        logging.info("Removed monitoring lock file to force restart.")
+                    except Exception as e:
+                        logging.error(f"Failed to remove monitoring lock file: {e}")
+                else:
+                    logging.info(
+                        f"Monitoring.py is active (lock file found: {monitoring_lock_file_path}). "
+                        f"SniperX V2 pausing for {check_interval_seconds} seconds..."
+                    )
+                    time.sleep(check_interval_seconds)
+                    continue
 
             logging.info(f"\n--- Starting new SniperX processing cycle at {datetime.datetime.now()} ---")
             

@@ -162,32 +162,6 @@ def restart_sniperx_v2():
         print(f"❌ Failed to start new SniperX V2 process: {e}")
         return False
 
-def remove_token_from_csv(token_address, csv_file_path):
-    """Remove a token from the CSV file by its address."""
-    try:
-        # Read all rows from the CSV
-        with open(csv_file_path, 'r', newline='', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
-            fieldnames = reader.fieldnames
-        
-        # Filter out the token to be removed
-        new_rows = [row for row in rows if row.get('Address', '').strip() != token_address]
-        
-        # If the token was found and removed, write the updated rows back to the file
-        if len(new_rows) < len(rows):
-            with open(csv_file_path, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(new_rows)
-            print(f"✅ Removed token {token_address} from {os.path.basename(csv_file_path)}")
-            return True
-        else:
-            print(f"ℹ️ Token {token_address} not found in {os.path.basename(csv_file_path)}")
-            return False
-    except Exception as e:
-        print(f"❌ Error removing token {token_address} from CSV: {e}")
-        return False
 
 class TokenProcessingComplete(Exception):
     """Signals that the current token's monitoring/trading lifecycle is complete."""

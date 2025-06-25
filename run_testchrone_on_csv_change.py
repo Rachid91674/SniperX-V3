@@ -1,8 +1,8 @@
-import time
 import os
+import signal
 import subprocess
 import sys
-import signal
+import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -40,10 +40,21 @@ class CSVChangeHandler(FileSystemEventHandler):
 
     def _terminate_pid(self, pid: int):
         try:
+            print(f"Watchdog: Attempting to terminate process {pid}...")
+            
             # First try a gentle termination
             try:
-                os.kill(pid, signal.CTRL_BREAK_EVENT if os.name == 'nt' else signal.SIGTERM)
-                print(f"Watchdog: Sent termination signal to PID {pid}...")
+                if os.name == 'nt':
+                    # On Windows, use taskkill for more reliable process termination
+                    subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], 
+                                 timeout=5, 
+                                 stdout=subprocess.PIPE, 
+                                 stderr=subprocess.PIPE)
+                    print(f"Watchdog: Sent termination signal to PID {pid} using taskkill")
+                else:
+                    # On Unix-like systems
+                    os.kill(pid, signal.SIGTERM)
+                    print(f"Watchdog: Sent SIGTERM to PID {pid}...")
                 
                 # Wait for process to terminate
                 start_time = time.time()
@@ -55,37 +66,63 @@ class CSVChangeHandler(FileSystemEventHandler):
                         print(f"Watchdog: PID {pid} terminated gracefully.")
                         return
                 
-                # If we get here, process didn't terminate, force kill it
-                print(f"Watchdog: Process {pid} did not terminate gracefully, forcing...")
+                # If we get here, process didn't terminate
+                print(f"Watchdog: Process {pid} did not terminate gracefully, trying alternative methods...")
+                
+                # Try with psutil if available
                 try:
                     import psutil
-                    parent = psutil.Process(pid)
-                    children = parent.children(recursive=True)
-                    for child in children:
-                        try:
-                            child.terminate()
-                        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                            pass
-                    
-                    # Give children a moment to terminate
-                    gone, still_alive = psutil.wait_procs(children, timeout=3)
-                    for p in still_alive:
-                        try:
-                            p.kill()
-                        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                            pass
-                    
-                    # Now terminate the parent
-                    parent.terminate()
-                    parent.wait(3)
-                    print(f"Watchdog: Force terminated process group for PID {pid}")
-                except Exception as e:
-                    print(f"Watchdog: Error in process tree termination for {pid}: {e}")
-                    # Fall back to simple kill if psutil fails
                     try:
-                        os.kill(pid, signal.SIGKILL)
-                    except Exception as e2:
-                        print(f"Watchdog: Error sending SIGKILL to {pid}: {e2}")
+                        parent = psutil.Process(pid)
+                        children = parent.children(recursive=True)
+                        
+                        # Terminate all children
+                        for child in children:
+                            try:
+                                child.terminate()
+                            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                pass
+                        
+                        # Wait for children to terminate
+                        gone, still_alive = psutil.wait_procs(children, timeout=3)
+                        
+                        # Kill any remaining children
+                        for p in still_alive:
+                            try:
+                                p.kill()
+                            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                pass
+                        
+                        # Terminate the parent
+                        parent.terminate()
+                        parent.wait(3)
+                        print(f"Watchdog: Force terminated process group for PID {pid} using psutil")
+                        return
+                        
+                    except psutil.NoSuchProcess:
+                        print(f"Watchdog: Process {pid} not found (already terminated?)")
+                        return
+                        
+                except ImportError:
+                    print("Watchdog: psutil not available, using fallback methods")
+                    
+                    # Fallback for Windows without psutil
+                    if os.name == 'nt':
+                        try:
+                            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], 
+                                         timeout=5, 
+                                         stdout=subprocess.PIPE, 
+                                         stderr=subprocess.PIPE)
+                            print(f"Watchdog: Used taskkill /F as fallback for PID {pid}")
+                        except Exception as e:
+                            print(f"Watchdog: Error in taskkill fallback: {e}")
+                    else:
+                        # Unix fallback
+                        try:
+                            os.killpg(os.getpgid(pid), signal.SIGKILL)
+                            print(f"Watchdog: Sent SIGKILL to process group for PID {pid}")
+                        except Exception as e:
+                            print(f"Watchdog: Error in SIGKILL fallback: {e}")
                 
             except ProcessLookupError:
                 print(f"Watchdog: Process {pid} not found, already terminated.")

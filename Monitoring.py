@@ -213,7 +213,7 @@ class TokenProcessingComplete(Exception):
         reset_token_specific_state()
         
         # Inform the main loop to continue processing without exiting
-        print(f"[INFO] Token processing complete for {mint_address}. Ready for next token.")
+        print(f"✅ Token processing complete for {mint_address}. Ready for next token.")
 
 # --- Token Lifecycle Configuration ---
 TAKE_PROFIT_THRESHOLD_PERCENT = 1.10  # e.g., 10% profit
@@ -244,9 +244,10 @@ def load_token_from_csv(csv_file_path):
     and price impact below the threshold.
     """
     valid_tokens = []
-    print(f"\n=== Loading tokens from {csv_file_path} ===")
-    print(f"Price impact threshold: {PRICE_IMPACT_THRESHOLD_MONITOR}%")
-    print(f"Minimum liquidity: ${MIN_LIQUIDITY_USD}")
+    print(f"\n🔍 Loading tokens from CSV...")
+    print(f"⚙️ Settings:")
+    print(f"   • 💰 Price impact threshold: {PRICE_IMPACT_THRESHOLD_MONITOR}%")
+    print(f"   • 💧 Minimum liquidity: ${MIN_LIQUIDITY_USD:,.2f}".replace(".00", ""))
     
     try:
         with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
@@ -311,7 +312,7 @@ def load_token_from_csv(csv_file_path):
                         reasons.append(f"liquidity ${liquidity_val:,.2f} < ${MIN_LIQUIDITY_USD:,.2f}")
                     print(f"❌ Token rejected: {', '.join(reasons)}")
             
-            print("No valid tokens found in CSV")
+            print("❌ No valid tokens found in CSV")
             return None, None
                 
     except FileNotFoundError:
@@ -880,7 +881,7 @@ async def periodic_csv_checker():
                 
             # Skip checking if we're currently processing a token
             if g_processing_token:
-                print(f"ℹ️ Currently processing {name_being_monitored_by_this_task}. Skipping CSV check...")
+                print(f"⏳ Currently processing {name_being_monitored_by_this_task}. Skipping CSV check...")
                 continue
 
             new_target_mint_address, new_target_token_name = load_token_from_csv(INPUT_CSV_FILE)
@@ -892,7 +893,7 @@ async def periodic_csv_checker():
                     # Don't trigger restart, just log the detection
             else: 
                 if address_being_monitored_by_this_task is not None:
-                    print(f"ℹ️ No target token in CSV. Continuing with current token '{name_being_monitored_by_this_task}'.")
+                    print(f"⏳ Will check again in {CSV_CHECK_INTERVAL_SECONDS}s...")
 
     except asyncio.CancelledError:
         print(f"📋 CSV checker for {name_being_monitored_by_this_task} cancelled.")

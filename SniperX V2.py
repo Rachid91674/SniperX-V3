@@ -265,6 +265,51 @@ def load_existing_tokens(csv_filepath):
             logging.error(f"Error reading existing tokens from {csv_filepath}: {e}")
     return existing_tokens
 
+def main_token_processing_loop(script_dir_path):
+    """Main processing loop for token analysis."""
+    from process_lock import process_lock, should_pause_execution
+    
+    while True:
+        try:
+            # Check if we should pause execution (if another process is monitoring a token)
+            if should_pause_execution():
+                logging.info("⏸️  Pausing token processing - Monitoring in progress")
+                time.sleep(5)  # Check every 5 seconds
+                continue
+                
+            # Get graduated tokens
+            tokens = get_graduated_tokens()
+            if not tokens:
+                time.sleep(5)
+                continue
+                
+            prelim_tokens = filter_preliminary(tokens)
+            if not prelim_tokens:
+                time.sleep(5)
+                continue
+            
+            # Process in both 1m and 5m windows
+            for win_minutes in [1, 5]:
+                try:
+                    # Double-check the lock before processing
+                    if should_pause_execution():
+                        logging.info(f"⏸️  Pausing {win_minutes}m window processing - Monitoring in progress")
+                        break
+                        
+                    logging.info(f"🔍 Processing {len(prelim_tokens)} tokens in {win_minutes}m window")
+                    process_window(win_minutes, prelim_tokens, script_dir_path)
+                    
+                except Exception as e:
+                    logging.error(f"Error in {win_minutes}m window processing: {e}")
+                    time.sleep(5)  # Short delay on error
+            
+            # Wait before next iteration
+            time.sleep(5)
+            
+        except Exception as e:
+            logging.error(f"Error in main processing loop: {e}")
+            time.sleep(10)  # Wait longer on error
+
 def process_window(win_minutes: int, prelim_tokens: list, script_dir_path: str) -> dict:
     """
     Process tokens in a specific time window and detect various risk patterns.

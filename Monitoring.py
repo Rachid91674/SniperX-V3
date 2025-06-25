@@ -11,6 +11,7 @@ import sys
 from collections import deque
 import time
 from datetime import datetime
+from process_lock import process_lock
 
 # --- Configuration ---
 # Path to the CSV file used for monitoring. The location can be overridden with
@@ -298,19 +299,34 @@ def load_token_from_csv(csv_file_path):
                 price_impact_ok = price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR
                 liquidity_ok = liquidity_val >= MIN_LIQUIDITY_USD
                 
-                print(f"Price Impact: {price_impact_val}% (Max: {PRICE_IMPACT_THRESHOLD_MONITOR}%) - {'OK' if price_impact_ok else 'Too High'}")
-                print(f"Liquidity: ${liquidity_val:,.2f} (Min: ${MIN_LIQUIDITY_USD:,.2f}) - {'OK' if liquidity_ok else 'Insufficient'}")
+                print(f"\n📊 Token Analysis: {token_name}")
+                print(f"🔍 Price Impact: {price_impact_val:.2f}% (Max: {PRICE_IMPACT_THRESHOLD_MONITOR}%) - {'✅ OK' if price_impact_ok else '❌ Too High'}")
+                print(f"💰 Liquidity: ${liquidity_val:,.2f} (Min: ${MIN_LIQUIDITY_USD:,.2f}) - {'✅ OK' if liquidity_ok else '❌ Insufficient'}")
+                
+                # Log risk factors if available
+                risk_status = row.get('Overall_Risk_Status', 'N/A')
+                if risk_status != 'N/A':
+                    print(f"⚠️  Risk Status: {risk_status}")
+                    risk_details = row.get('Risk_Warning_Details', '')
+                    if risk_details and risk_details != 'None':
+                        print(f"   • {risk_details.replace('; ', '\n   • ')}")
                 
                 if price_impact_ok and liquidity_ok:
-                    print(f"✅ Token meets all criteria: {token_name}")
+                    print(f"\n✅ Token meets all criteria: {token_name}")
                     return mint_address, token_name
                 else:
                     reasons = []
                     if not price_impact_ok:
-                        reasons.append(f"price impact {price_impact_val}% >= {PRICE_IMPACT_THRESHOLD_MONITOR}%")
+                        reasons.append(f"price impact {price_impact_val:.2f}% >= {PRICE_IMPACT_THRESHOLD_MONITOR}%")
                     if not liquidity_ok:
                         reasons.append(f"liquidity ${liquidity_val:,.2f} < ${MIN_LIQUIDITY_USD:,.2f}")
-                    print(f"❌ Token rejected: {', '.join(reasons)}")
+                    print(f"\n❌ Token rejected: {', '.join(reasons)}")
+                    
+                    # Log additional token details for debugging
+                    print(f"📌 Token Details:")
+                    print(f"   • Address: {mint_address}")
+                    print(f"   • Name: {token_name}")
+                    print(f"   • Current Price: ${float(row.get('DexScreener_Token_Price_USD', 0)):.8f}" if 'DexScreener_Token_Price_USD' in row else "   • Price: N/A")
             
             print("❌ No valid tokens found in CSV")
             return None, None
@@ -941,15 +957,29 @@ async def main():
         sol_price_task = asyncio.create_task(periodic_sol_price_updater())
 
         while True:
-            loaded_mint_address, loaded_token_name = load_token_from_csv(INPUT_CSV_FILE)
+            # Acquire the process lock before loading a new token
+            if not process_lock.acquire(timeout=300):  # 5 minute timeout
+                logging.error("❌ Failed to acquire process lock after 5 minutes. Another instance might be running.")
+                await asyncio.sleep(5)
+                continue
+                
+            loaded_mint_address = None
+            loaded_token_name = None
+            try:
+                loaded_mint_address, loaded_token_name = load_token_from_csv(INPUT_CSV_FILE)
+            except Exception as e:
+                logging.error(f"❌ Error loading token from CSV: {e}")
+                process_lock.release()
+                await asyncio.sleep(5)
+                continue
 
-            if not loaded_mint_address:
-                if g_current_mint_address is not None: # If we were monitoring something and it disappeared
-                    print(f"INFO: No token currently specified in '{INPUT_CSV_FILE}'. Ceasing monitoring of '{g_token_name}'.")
+            try:
+                if not loaded_mint_address:
+                    if g_current_mint_address is not None: 
+                        print(f"INFO: No token currently specified in '{INPUT_CSV_FILE}'. Ceasing monitoring of '{g_token_name}'.\n")
                 
                 # If no token is active, this instance should not hold the lock.
                 if lock_created_by_this_instance and os.path.exists(LOCK_FILE_PATH):
-                    # print(f"INFO: No token active, ensuring lock file {LOCK_FILE_PATH} (owned by PID {os.getpid()}) is removed.")
                     try:
                         # Before removing, ideally verify it's still our lock (e.g. check PID in file)
                         # For now, if this instance created it and it exists, remove it.
@@ -974,20 +1004,37 @@ async def main():
                     for task in g_current_tasks:
                         if not task.done(): task.cancel()
                     await asyncio.gather(*g_current_tasks, return_exceptions=True)
-                    g_current_tasks = []
+                g_current_tasks = []
 
                 await asyncio.sleep(CSV_CHECK_INTERVAL_SECONDS)
+                # Release the lock before continuing
+                if process_lock.lock_acquired:
+                    process_lock.release()
+                continue
+            except Exception as e:
+                logging.error(f"❌ Error in token processing: {e}")
+                if process_lock.lock_acquired:
+                    process_lock.release()
+                await asyncio.sleep(5)
                 continue
 
-            # A token IS loaded. Ensure lock file exists if this instance is supposed to hold it.
-            if lock_created_by_this_instance and not os.path.exists(LOCK_FILE_PATH):
-                print(f"INFO: Token '{loaded_token_name}' is active. Re-asserting lock file {LOCK_FILE_PATH} for PID {os.getpid()}.")
+            # A token IS loaded. Ensure we have the lock
+            if not process_lock.lock_acquired:
+                if not process_lock.acquire(timeout=60):
+                    print(f"❌ Failed to acquire process lock for token {loaded_token_name}")
+                    await asyncio.sleep(5)
+                    continue
+                print(f"🔒 Acquired process lock for token: {loaded_token_name}")
+            
+            # Update the lock file with current PID if needed
+            if lock_created_by_this_instance and (not os.path.exists(LOCK_FILE_PATH) or 
+                not os.path.getsize(LOCK_FILE_PATH) > 0):
                 try:
                     with open(LOCK_FILE_PATH, 'w') as f_lock:
                         f_lock.write(str(os.getpid()))
-                    print(f"INFO: Lock file {LOCK_FILE_PATH} re-created/taken by Monitoring.py (PID: {os.getpid()}).")
+                    print(f"🔒 Updated lock file {LOCK_FILE_PATH} for token: {loaded_token_name}")
                 except Exception as e_recreate_lock:
-                    print(f"ERROR: Could not re-create lock file {LOCK_FILE_PATH} for active token: {e_recreate_lock}")
+                    print(f"❌ Could not update lock file {LOCK_FILE_PATH}: {e_recreate_lock}")
             
             # --- Token Monitoring Logic --- 
             if g_current_mint_address != loaded_mint_address or not g_current_tasks:

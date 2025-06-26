@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import os
 import subprocess
 import sys
@@ -8,7 +9,6 @@ import asyncio
 import json
 from decimal import Decimal
 from dotenv import load_dotenv
-from logger_utils import setup_logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
 import time
@@ -32,6 +32,40 @@ SNIPERX_SCRIPT_PATH = os.path.join(SCRIPT_DIR, SNIPERX_SCRIPT_NAME)
 WALLET_MANAGER_PATH = os.path.join(SCRIPT_DIR, WALLET_MANAGER_SCRIPT)
 
 # --- Logging ---
+def setup_logging():
+    # Create logs directory if it doesn't exist
+    logs_dir = os.path.join(SCRIPT_DIR, 'logs')
+    os.makedirs(logs_dir, exist_ok=True)
+    
+    # Create a custom logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    
+    # Create handlers
+    console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(
+        os.path.join(logs_dir, f'telegram_bot_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
+        encoding='utf-8'
+    )
+    
+    # Set levels
+    console_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
+    
+    # Create formatters and add it to handlers
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(log_format)
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+    
+    # Clear any existing handlers
+    logger.handlers = []
+    
+    # Add handlers to the logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    
+    return logging.getLogger(__name__)
 
 # Initialize logging
 logger = setup_logging()

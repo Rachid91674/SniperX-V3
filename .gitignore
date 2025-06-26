@@ -44,3 +44,4 @@ wallet_balance.json
 .sniperx_first_run_complete
 bubblemaps_token_data/
 !sample_data/*.csv
+*.csv

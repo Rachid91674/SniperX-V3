@@ -56,6 +56,8 @@ BUY_SIGNAL_TIMEOUT_SECONDS = 300  # 5 minutes timeout for no buy signal
 
 g_current_tasks = []  # Holds tasks like listener, trader, csv_checker for cancellation
 g_processing_token = False  # Tracks if we're currently processing a token
+g_token_monitor_start_time = 0  # Timestamp when monitoring of current token started
+BUY_SIGNAL_TIMEOUT_SECONDS = 300  # 5 minutes timeout for no buy signal
 
 # Custom exception for signaling restart
 class RestartRequired(Exception):

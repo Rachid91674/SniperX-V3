@@ -3,8 +3,8 @@
 import os
 import requests
 import asyncio
+from datetime import datetime, timedelta, timezone
 import aiohttp
-import datetime # Added for marker file timestamp
 import dateparser
 import csv      # Added for CSV writing
 import unicodedata
@@ -15,18 +15,74 @@ from dotenv import load_dotenv
 import subprocess
 import logging
 import signal
-load_dotenv()
+
+def load_environment():
+    """Load environment variables and verify configuration."""
+    env_file = None
+    if os.path.exists('.env'):
+        env_file = '.env'
+        print(f"[INFO] Loading environment from: {os.path.abspath('.env')}")
+        load_dotenv(dotenv_path=env_file)
+    elif os.path.exists('sniperx_config.env'):
+        env_file = 'sniperx_config.env'
+        print(f"[INFO] Loading environment from: {os.path.abspath('sniperx_config.env')}")
+        load_dotenv(dotenv_path=env_file)
+    else:
+        print("[ERROR] No environment file found. Please ensure either .env or sniperx_config.env exists.")
+        sys.exit(1)
+    
+    # Verify the environment file contents
+    if env_file:
+        try:
+            print(f"\n[DEBUG] Contents of {env_file}:")
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        # Mask sensitive values
+                        if any(key in line.upper() for key in ['API_KEY', 'TOKEN', 'SECRET', 'PASSWORD']):
+                            parts = line.split('=', 1)
+                            if len(parts) == 2:
+                                key, value = parts
+                                print(f"  {key}=[MASKED]")
+                                continue
+                        print(f"  {line}")
+            print()
+        except Exception as e:
+            print(f"[WARN] Could not read environment file: {e}")
+
+# Load and verify environment
+load_environment()
 
 # --- Global Configurations & Constants ---
 TEST_MODE = len(sys.argv) > 1 and sys.argv[1] == "--test"
-MORALIS_API_KEYS = [os.getenv(f"MORALIS_API_KEY_{i}", "").split('#')[0].strip() for i in range(1,6)]
-MORALIS_API_KEYS = [k for k in MORALIS_API_KEYS if k]
+
+# Debug: Print all environment variables starting with MORALIS_API_KEY_
+print("\n[DEBUG] Checking Moralis API keys in environment:")
+for k, v in os.environ.items():
+    if k.startswith('MORALIS_API_KEY_'):
+        print(f"  {k}: {'*' * 8}{v[-4:] if v else 'None'}")
+
+# Load API keys from environment
+MORALIS_API_KEYS = [os.getenv(f"MORALIS_API_KEY_{i}", "").strip('"\'') for i in range(1,6)]
+MORALIS_API_KEYS = [k.split('#')[0].strip() for k in MORALIS_API_KEYS]  # Remove comments
+MORALIS_API_KEYS = [k for k in MORALIS_API_KEYS if k]  # Filter out empty keys
+
+# Standard Moralis API endpoint (updated to use the standard API endpoint)
+MORALIS_API_BASE = "https://deep-index.moralis.io/api/v2"
+
+print(f"\n[DEBUG] Loaded {len(MORALIS_API_KEYS)} Moralis API keys")
+for i, key in enumerate(MORALIS_API_KEYS, 1):
+    print(f"  Key {i}: {'*' * 8}{key[-4:] if key else 'None'}")
+
 if not MORALIS_API_KEYS:
-    print("[ERROR] No Moralis API keys configured in .env. Exiting.")
+    print("\n[ERROR] No valid Moralis API keys found in environment variables. Please check your configuration.")
+    print("Make sure your sniperx_config.env file contains valid MORALIS_API_KEY_1, MORALIS_API_KEY_2, etc. entries.")
     sys.exit(1)
+
+# Update the exchange name and API URL
 EXCHANGE_NAME = os.getenv("EXCHANGE_NAME", "pumpfun")
-FETCH_LIMIT = 100
-MORALIS_API_URL = f"https://solana-gateway.moralis.io/token/mainnet/exchange/{EXCHANGE_NAME}/graduated?limit={FETCH_LIMIT}"
+MORALIS_API_URL = "https://deep-index.moralis.io/api/v2/solana/token/graduated"
 DEFAULT_MAX_WORKERS = 1 # <<<< SET TO 1 AS PER USER REQUEST >>>>
 DEXSCREENER_CHAIN_ID = "solana"
 raw_snipe_age_env = os.getenv("SNIPE_GRADUATED_DELTA_MINUTES", "60")
@@ -77,29 +133,89 @@ GHOST_PRICE_REL_MULTIPLIER = float(raw_gpr) if raw_gpr else 2.0
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
 def get_graduated_tokens():
+    print(f"\n[DEBUG] ===== Starting get_graduated_tokens() =====")
+    print(f"[DEBUG] Using EXCHANGE_NAME: {EXCHANGE_NAME}")
+    print(f"[DEBUG] Full API URL: {MORALIS_API_URL}")
+    
     print(f"[INFO] Fetching graduated tokens from '{EXCHANGE_NAME}'...")
+    
     for idx, key in enumerate(MORALIS_API_KEYS, start=1):
-        print(f"[INFO] Trying Moralis API key {idx}/{len(MORALIS_API_KEYS)}")
-        headers = {"Accept": "application/json", "Authorization": f"Bearer {key}"}
+        # Mask the key for security (only show first 8 and last 4 chars)
+        key_display = f"{key[:8]}...{key[-4:] if len(key) > 12 else ''}" if key else "[EMPTY KEY]"
+        print(f"\n[INFO] Trying Moralis API key {idx}/{len(MORALIS_API_KEYS)}: {key_display}")
+        
+        # Updated headers for Moralis API v2
+        headers = {
+            "Accept": "application/json",
+            "X-API-Key": key,
+            "Content-Type": "application/json"
+        }
+        
+        params = {
+            'limit': 100,
+            'exchange': EXCHANGE_NAME,
+            'chain': 'solana',
+            'order': 'DESC',
+            'from_date': (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()  # Last 24 hours
+        }
+        
         try:
-            resp = requests.get(MORALIS_API_URL, headers=headers, timeout=20)
+            print("[DEBUG] Sending request to Moralis API...")
+            resp = requests.get(MORALIS_API_URL, headers=headers, params=params, timeout=20)
+            print(f"[DEBUG] Response status code: {resp.status_code}")
+            
+            # Log response headers for debugging
+            print("[DEBUG] Response headers:", dict(resp.headers))
+            
             resp.raise_for_status()
+            
             data = resp.json()
-            tokens = data.get('result') or []
-            print(f"[INFO] Retrieved {len(tokens)} tokens with key {idx}.")
+            
+            # Handle different response formats
+            if isinstance(data, list):
+                tokens = data
+            elif isinstance(data, dict):
+                tokens = data.get('result', [])
+            else:
+                tokens = []
+                
+            print(f"[INFO] Success! Retrieved {len(tokens)} tokens with key {idx}.")
             return [t for t in tokens if isinstance(t, dict)] 
+            
         except requests.exceptions.HTTPError as err:
             status = getattr(err.response, 'status_code', None)
-            print(f"[WARN] Key {idx} HTTP {status} error: {err}. Trying next key.")
+            error_details = ""
+            if hasattr(err.response, 'text'):
+                error_details = f" Response: {err.response.text}"
+            print(f"[WARN] Key {idx} HTTP {status} error: {err}.{error_details}")
+            
+            # If we get a 401, the key is definitely invalid
+            if status == 401:
+                print("[ERROR] This API key appears to be invalid. Please check your Moralis account.")
+            
         except requests.exceptions.RequestException as err:
-            print(f"[WARN] Request error with key {idx}: {err}. Trying next key.")
-        except ValueError:
-            print(f"[WARN] Invalid JSON with key {idx}. Trying next key.")
-    print("[ERROR] All Moralis API keys failed; please check Moralis API quota.")
+            print(f"[WARN] Request error with key {idx}: {err}")
+            
+        except ValueError as ve:
+            print(f"[WARN] JSON decode error with key {idx}: {ve}")
+            if hasattr(resp, 'text'):
+                print(f"[DEBUG] Response content: {resp.text[:200]}...")
+        
+        print(f"[INFO] Trying next API key...")
+    
+    print("\n[ERROR] All Moralis API keys failed. Possible issues:")
+    print("  1. API keys might be invalid or expired")
+    print(f"  2. Check if the endpoint is correct: {MORALIS_API_URL}")
+    print("  3. Verify your Moralis account has access to the requested exchange")
+    print("  4. Check if you've exceeded your API rate limits")
+    print("\n[ACTION REQUIRED] Please check your Moralis dashboard to:")
+    print("  1. Verify your API keys are correct")
+    print("  2. Check if your subscription is active")
+    print("  3. Ensure you have access to the Solana API")
     return []
 
 def filter_preliminary(tokens):
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.now(timezone.utc)
     filtered = []
     for token in tokens:
         if not isinstance(token, dict): continue
@@ -115,7 +231,7 @@ def filter_preliminary(tokens):
             try:
                 grad = dateparser.parse(grad_str)
                 if isinstance(grad, datetime.datetime):
-                    grad = grad.replace(tzinfo=datetime.timezone.utc) if grad.tzinfo is None else grad.astimezone(datetime.timezone.utc)
+                    grad = grad.replace(tzinfo=timezone.utc) if grad.tzinfo is None else grad.astimezone(timezone.utc)
                     minutes_diff = (now - grad).total_seconds() / 60
             except Exception as e: logging.debug(f"GraduatedAt parse error for {token.get('tokenAddress')}: {e}")
         if (liquidity >= PRELIM_LIQUIDITY_THRESHOLD and

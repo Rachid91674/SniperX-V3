@@ -283,7 +283,11 @@ def load_token_from_csv(csv_file_path):
                     print(f"⚠️  Risk Status: {risk_status}")
                     risk_details = row.get('Risk_Warning_Details', '')
                     if risk_details and risk_details != 'None':
-                        print(f"   • {risk_details.replace('; ', '\n   • ')}")
+                        # Split the risk details by semicolon and print each on a new line
+                        details_list = risk_details.split('; ')
+                        for detail in details_list:
+                            if detail.strip():  # Only print non-empty details
+                                print(f"   • {detail.strip()}")
                 
                 if price_impact_ok and liquidity_ok:
                     print(f"\n✅ Token meets all criteria: {token_name}")

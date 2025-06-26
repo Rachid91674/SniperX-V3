@@ -160,88 +160,28 @@ def get_token_metrics(token_pair_data_list):
     return price, liquidity, volume
 
 def whale_trap_avoidance(token_address, first_snap, second_snap):
-    """
-    Check if a token shows signs of a whale trap.
-    
-    A whale trap is detected when:
-    1. Price increases significantly (WHALE_PRICE_UP_PCT)
-    2. Liquidity increases significantly (WHALE_LIQUIDITY_UP_PCT)
-    3. Volume doesn't increase proportionally (volume_change_pct < WHALE_VOLUME_DOWN_PCT)
-    
-    Returns:
-        bool: True if whale trap is detected, False otherwise
-    """
     price1, liquidity1, volume1 = first_snap
     price2, liquidity2, volume2 = second_snap
-    
-    # Calculate percentage changes
-    price_change_pct = (price2 - price1) / price1 if price1 > 0 else 0
-    volume_change_pct = (volume2 - volume1) / volume1 if volume1 > 0 else 0
-    liq_change_pct = (liquidity2 - liquidity1) / liquidity1 if liquidity1 > 0 else 0
-    
-    # Log the metrics for debugging
-    logging.debug(f"Whale trap check for {token_address}:")
-    logging.debug(f"  • Price: ${price1:.8f} -> ${price2:.8f} ({price_change_pct*100:+.2f}%)")
-    logging.debug(f"  • Liquidity: ${liquidity1:,.2f} -> ${liquidity2:,.2f} ({liq_change_pct*100:+.2f}%)")
-    logging.debug(f"  • Volume: ${volume1:,.2f} -> ${volume2:,.2f} ({volume_change_pct*100:+.2f}%)")
-    
-    # Check for whale trap conditions
-    is_whale_trap = (price_change_pct > WHALE_PRICE_UP_PCT and 
-                    liq_change_pct > WHALE_LIQUIDITY_UP_PCT and 
-                    volume_change_pct < WHALE_VOLUME_DOWN_PCT)
-    
-    if is_whale_trap:
-        logging.warning(f"🐳 WHALE TRAP DETECTED: {token_address}")
-        logging.warning(f"   • Price ↑: {price_change_pct*100:+.2f}% (threshold: >{WHALE_PRICE_UP_PCT*100:.2f}%)")
-        logging.warning(f"   • Liquidity ↑: {liq_change_pct*100:+.2f}% (threshold: >{WHALE_LIQUIDITY_UP_PCT*100:.2f}%)")
-        logging.warning(f"   • Volume ↓: {volume_change_pct*100:+.2f}% (threshold: <{WHALE_VOLUME_DOWN_PCT*100:.2f}%)")
-    
-    # Return True if whale trap is detected (we want to filter these out)
-    return is_whale_trap
+    price_change_pct = (price2 - price1) / price1 if price1 else float('inf') if price2 > 0 else 0
+    volume_change_pct = (volume2 - volume1) / volume1 if volume1 else float('inf') if volume2 > 0 else 0
+    liq_change_pct = (liquidity2 - liquidity1) / liquidity1 if liquidity1 else float('inf') if liquidity2 > 0 else 0
+    if price_change_pct > WHALE_PRICE_UP_PCT and liq_change_pct > WHALE_LIQUIDITY_UP_PCT and volume_change_pct < WHALE_VOLUME_DOWN_PCT:
+        logging.warning(f"[WARN] Whale trap for {token_address}: Price↑, Liquidity↑, Vol Δ {volume_change_pct:.2%}")
+        return False
+    if price_change_pct > WHALE_PRICE_UP_PCT and liq_change_pct > WHALE_LIQUIDITY_UP_PCT and volume_change_pct >= WHALE_VOLUME_DOWN_PCT:
+        return True
+    return False
 
 def apply_whale_trap(tokens, first_snaps, second_snaps):
-    """
-    Filter out tokens that show signs of a whale trap.
-    
-    Args:
-        tokens: List of token dictionaries to check
-        first_snaps: Dictionary of first snapshots for each token
-        second_snaps: Dictionary of second snapshots for each token
-        
-    Returns:
-        list: Tokens that do not show signs of a whale trap
-    """
-    if not tokens:
-        return []
-        
-    safe_tokens = []
-    max_workers_for_whale_trap = min(DEFAULT_MAX_WORKERS, len(tokens)) if tokens else 1
+    passed = []
+    max_workers_for_whale_trap = DEFAULT_MAX_WORKERS if tokens else 1 # Adheres to global DEFAULT_MAX_WORKERS
     
     with ThreadPoolExecutor(max_workers=max_workers_for_whale_trap) as executor:
-        # Create a future for each token
-        future_to_token = {
-            executor.submit(
-                whale_trap_avoidance, 
-                token.get('tokenAddress'), 
-                first_snaps.get(token.get('tokenAddress'), (0, 0, 0)), 
-                second_snaps.get(token.get('tokenAddress'), (0, 0, 0))
-            ): token 
-            for token in tokens 
-            if token.get('tokenAddress')
-        }
-        
-        # Process results as they complete
-        for future in as_completed(future_to_token):
-            token = future_to_token[future]
-            is_whale_trap = future.result()
-            
-            if not is_whale_trap:
-                safe_tokens.append(token)
-            else:
-                logging.warning(f"🚫 Token {token.get('tokenAddress')} ({token.get('name', 'Unknown')}) filtered out - Whale trap detected")
-    
-    logging.info(f"✅ {len(safe_tokens)} of {len(tokens)} tokens passed Whale Trap Avoidance")
-    return safe_tokens
+        futures = {executor.submit(whale_trap_avoidance, t.get('tokenAddress'), first_snaps.get(t.get('tokenAddress'), (0,0,0)), second_snaps.get(t.get('tokenAddress'), (0,0,0))): t for t in tokens if t.get('tokenAddress')}
+        for future in as_completed(futures):
+            if future.result(): passed.append(futures[future])
+    logging.info(f"{len(passed)} tokens passed Whale Trap Avoidance.")
+    return passed
 
 def sanitize_name(name, fallback_name=None):
     if not name or name in ('None',): return fallback_name or 'Unknown'
@@ -265,64 +205,7 @@ def load_existing_tokens(csv_filepath):
             logging.error(f"Error reading existing tokens from {csv_filepath}: {e}")
     return existing_tokens
 
-def main_token_processing_loop(script_dir_path):
-    """Main processing loop for token analysis."""
-    from process_lock import process_lock, should_pause_execution
-    
-    while True:
-        try:
-            # Check if we should pause execution (if another process is monitoring a token)
-            if should_pause_execution():
-                logging.info("⏸️  Pausing token processing - Monitoring in progress")
-                time.sleep(5)  # Check every 5 seconds
-                continue
-                
-            # Get graduated tokens
-            tokens = get_graduated_tokens()
-            if not tokens:
-                time.sleep(5)
-                continue
-                
-            prelim_tokens = filter_preliminary(tokens)
-            if not prelim_tokens:
-                time.sleep(5)
-                continue
-            
-            # Process in both 1m and 5m windows
-            for win_minutes in [1, 5]:
-                try:
-                    # Double-check the lock before processing
-                    if should_pause_execution():
-                        logging.info(f"⏸️  Pausing {win_minutes}m window processing - Monitoring in progress")
-                        break
-                        
-                    logging.info(f"🔍 Processing {len(prelim_tokens)} tokens in {win_minutes}m window")
-                    process_window(win_minutes, prelim_tokens, script_dir_path)
-                    
-                except Exception as e:
-                    logging.error(f"Error in {win_minutes}m window processing: {e}")
-                    time.sleep(5)  # Short delay on error
-            
-            # Wait before next iteration
-            time.sleep(5)
-            
-        except Exception as e:
-            logging.error(f"Error in main processing loop: {e}")
-            time.sleep(10)  # Wait longer on error
-
-def process_window(win_minutes: int, prelim_tokens: list, script_dir_path: str) -> dict:
-    """
-    Process tokens in a specific time window and detect various risk patterns.
-    
-    Args:
-        win_minutes: Time window in minutes (1m or 5m)
-        prelim_tokens: List of tokens that passed preliminary filtering
-        script_dir_path: Path to the script directory for file operations
-        
-    Returns:
-        dict: Dictionary containing lists of tokens that passed different risk checks
-        with keys: 'whale', 'snipe', 'ghost'
-    """
+def process_window(win_minutes, prelim_tokens, script_dir_path):
     sleep_seconds = win_minutes * 60
     abs_csv_filepath = os.path.join(script_dir_path, f"sniperx_results_{win_minutes}m.csv")
     
@@ -331,130 +214,41 @@ def process_window(win_minutes: int, prelim_tokens: list, script_dir_path: str) 
     # Create a backup of the existing tokens to track new additions in this run
     existing_tokens_at_start = set(existing_tokens)
 
-    logging.info(f"🔍 === Analyzing {len(prelim_tokens)} tokens in {win_minutes}m window ===")
+    logging.info(f"=== Running filters for {win_minutes}m window ({sleep_seconds}s) ===")
     token_addresses = [t.get('tokenAddress') for t in prelim_tokens if t.get('tokenAddress')]
-    if not token_addresses: 
-        logging.info("No valid token addresses to process")
-        return {'whale': [], 'snipe': [], 'ghost': []}
+    if not token_addresses: return {'whale': [], 'snipe': [], 'ghost': []}
     
-    # Log the start of data collection
-    logging.info(f"📊 Collecting initial metrics for {len(token_addresses)} tokens...")
     first_data = asyncio.run(fetch_all_token_data(token_addresses))
     first_snaps = {addr: get_token_metrics(first_data.get(addr)) for addr in token_addresses}
-    logging.info(f"✅ Captured initial metrics for {len(first_snaps)} tokens. Waiting {sleep_seconds}s...")
-    
-    # Wait for the time window to elapse
+    logging.info(f"Captured t0 for {len(first_snaps)} tokens in {win_minutes}m window. Waiting {sleep_seconds}s...")
     time.sleep(sleep_seconds)
-    
-    # Collect second set of metrics
-    logging.info("🔄 Collecting second set of metrics...")
     second_data = asyncio.run(fetch_all_token_data(token_addresses))
     second_snaps = {addr: get_token_metrics(second_data.get(addr)) for addr in token_addresses}
-    logging.info(f"✅ Captured second set of metrics for {len(second_snaps)} tokens")
+    logging.info(f"Captured t1 for {len(second_snaps)} tokens in {win_minutes}m window.")
     
-    # Apply whale trap avoidance filter
-    logging.info("\n🐋 === WHALE TRAP DETECTION ===")
-    logging.info(f"Analyzing {len(prelim_tokens)} tokens for whale trap patterns...")
     passed_whale_trap = apply_whale_trap(prelim_tokens, first_snaps, second_snaps)
-    
-    # Log detailed results of whale trap filtering
-    if passed_whale_trap:
-        logging.info(f"✅ {len(passed_whale_trap)} tokens passed whale trap avoidance")
-    else:
-        logging.warning("⚠️  No tokens passed whale trap avoidance checks")
-        # Early return if all tokens were filtered out
-        return {'whale': [], 'snipe': [], 'ghost': []}
-    
-    # Initialize lists for different risk categories
     snipe_candidates, ghost_buyer_candidates = [], []
     now_utc = datetime.datetime.now(datetime.timezone.utc)
 
-    # Analyze each token for snipe and ghost buyer patterns
-    logging.info("🔍 Analyzing tokens for snipe and ghost buyer patterns...")
     for token_info in passed_whale_trap:
         grad_str = token_info.get('graduatedAt')
-        if not grad_str: 
-            continue
-            
-        # Parse graduation time
+        if not grad_str: continue
         grad_dt = dateparser.parse(grad_str)
-        if not isinstance(grad_dt, datetime.datetime): 
-            continue
-            
-        # Normalize timezone
+        if not isinstance(grad_dt, datetime.datetime): continue
         grad_dt = grad_dt.replace(tzinfo=datetime.timezone.utc) if grad_dt.tzinfo is None else grad_dt.astimezone(datetime.timezone.utc)
         age_minutes = (now_utc - grad_dt).total_seconds() / 60
-        
-        # Skip tokens that are too old for snipe detection
-        if age_minutes > SNIPE_GRADUATED_DELTA_MINUTES_FLOAT: 
-            continue
-            
+        if age_minutes > SNIPE_GRADUATED_DELTA_MINUTES_FLOAT: continue
         addr = token_info.get('tokenAddress')
-        token_name = token_info.get('name', 'Unknown')
-        
-        # Get price, liquidity and volume changes
-        p1, l1, v1 = first_snaps.get(addr, (0, 0, 0))
-        p2, l2, v2 = second_snaps.get(addr, (0, 0, 0))
-        
-        # Calculate percentage changes
+        p1,l1,v1 = first_snaps.get(addr,(0,0,0)); p2,l2,v2 = second_snaps.get(addr,(0,0,0))
         liq_chg = (l2-l1)/l1 if l1 else float('inf') if l2 else 0
         vol_chg = (v2-v1)/v1 if v1 else float('inf') if v2 else 0
         prc_chg = (p2-p1)/p1 if p1 else float('inf') if p2 else 0
-        
-        # Log token metrics for debugging
-        logging.info(f"\n📊 Token: {token_name} ({addr})")
-        logging.info(f"   • 💰 Price: ${p2:.8f} ({prc_chg*100:+.2f}%)")
-        logging.info(f"   • 💧 Liquidity: ${l2:,.2f} ({liq_chg*100:+.2f}%)")
-        logging.info(f"   • 📈 Volume: ${v2:,.2f} ({vol_chg*100:+.2f}%)")
-        logging.info(f"   • 🕒 Age: {age_minutes:.2f} minutes")
-        
-        # Check for snipe pattern
-        is_snipe = (vol_chg > 0.01 and prc_chg > 0.01 and 
-                   liq_chg >= 0.05 and liq_chg > vol_chg and liq_chg > prc_chg)
-        
-        if is_snipe:
-            logging.warning(f"🔫 SNIPE DETECTED: {token_name} in {win_minutes}m window")
-            logging.warning(f"   • 📊 Volume Δ: {vol_chg*100:+.2f}% (Min: 1.00%)")
-            logging.warning(f"   • 💰 Price Δ: {prc_chg*100:+.2f}% (Min: 1.00%)")
-            logging.warning(f"   • 💧 Liquidity Δ: {liq_chg*100:+.2f}% (Min: 5.00%)")
-            logging.warning(f"   • 📈 Liquidity > Volume: {liq_chg > vol_chg}")
-            logging.warning(f"   • 📈 Liquidity > Price: {liq_chg > prc_chg}")
+        if vol_chg > 0.01 and prc_chg > 0.01 and liq_chg >= 0.05 and liq_chg > vol_chg and liq_chg > prc_chg:
             snipe_candidates.append(token_info)
-        
-        # Check for ghost buyer pattern
         ghost_vol_min = GHOST_VOLUME_MIN_PCT_1M if win_minutes == 1 else GHOST_VOLUME_MIN_PCT_5M
-        ghost_price_max = vol_chg * GHOST_PRICE_REL_MULTIPLIER
-        is_ghost = (vol_chg > ghost_vol_min and 
-                   abs(prc_chg) < ghost_price_max)
-        
-        if is_ghost:
-            logging.warning(f"👻 GHOST BUYER DETECTED: {token_name} in {win_minutes}m window")
-            logging.warning(f"   • 📊 Volume Δ: {vol_chg*100:+.2f}% (Min: {ghost_vol_min*100:.2f}%)")
-            logging.warning(f"   • 💰 Price Δ: {prc_chg*100:+.2f}% (Max allowed: ±{ghost_price_max*100:.2f}%)")
-            logging.warning(f"   • 📈 Volume to Price Ratio: {abs(vol_chg/max(0.0001, prc_chg)):.2f}x")
-            logging.warning(f"   • ⚖️  Volume > {ghost_vol_min*100:.2f}%: {vol_chg > ghost_vol_min}")
-            logging.warning(f"   • ⚖️  |Price| < {ghost_price_max*100:.2f}%: {abs(prc_chg) < ghost_price_max}")
+        if vol_chg > ghost_vol_min and abs(prc_chg) < (vol_chg * GHOST_PRICE_REL_MULTIPLIER):
             ghost_buyer_candidates.append(token_info)
-    
-    # Log summary of detections with emojis and timestamps
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    logging.info(f"\n📊 === Detection Summary for {win_minutes}m window @ {timestamp} ===")
-    logging.info(f"   • 🐋 Passed Whale Trap: {len(passed_whale_trap)} tokens")
-    logging.info(f"   • 🔫 Snipe Detections: {len(snipe_candidates)} tokens")
-    logging.info(f"   • 👻 Ghost Buyer Detections: {len(ghost_buyer_candidates)} tokens")
-    
-    # Log detailed risk metrics
-    if snipe_candidates or ghost_buyer_candidates:
-        logging.info("\n🔍 Detailed Risk Metrics:")
-        for token in snipe_candidates + ghost_buyer_candidates:
-            addr = token.get('tokenAddress', 'N/A')
-            name = token.get('name', 'Unknown')
-            risk_type = "SNIPE" if token in snipe_candidates else "GHOST"
-            logging.info(f"   • {risk_type}: {name} ({addr})")
-    
-    logging.info("=" * 60)  # Visual separator
-    
-    # Combine results, removing duplicates (snipe takes precedence over ghost buyer)
+            
     final_results_for_csv = snipe_candidates + [t for t in ghost_buyer_candidates if t not in snipe_candidates]
     
     # Filter out tokens that were already in the file at the start
@@ -462,10 +256,10 @@ def process_window(win_minutes: int, prelim_tokens: list, script_dir_path: str) 
                  if t.get('tokenAddress') and t['tokenAddress'] not in existing_tokens_at_start]
     
     if not new_tokens:
-        logging.info(f" No new tokens to add to {abs_csv_filepath}")
-        return {'whale': passed_whale_trap, 'snipe': snipe_candidates, 'ghost': ghost_buyer_candidates}
+        logging.info(f"No new tokens to add to {abs_csv_filepath}")
+        return {'whale': [], 'snipe': [], 'ghost': []}
     
-    # Write results to CSV
+    # Write header if file doesn't exist
     write_header = not os.path.exists(abs_csv_filepath)
     
     try:
@@ -488,43 +282,30 @@ def process_window(win_minutes: int, prelim_tokens: list, script_dir_path: str) 
                     
                 p1, l1, v1 = first_snaps.get(addr, (0, 0, 0))
                 p2, l2, v2 = second_snaps.get(addr, (0, 0, 0))
-                is_snipe = t_data in snipe_candidates
-                is_ghost = t_data in ghost_buyer_candidates
                 
-                # Format the row data
-                row_data = {
+                writer.writerow({
                     'Address': addr, 
                     'Name': sanitize_name(t_data.get('name'), t_data.get('symbol')),
                     'Price USD': f"{p2:.8f}", 
-                    f'Liquidity({win_minutes}m)': f"{l2:,.2f}",
+                    f'Liquidity({win_minutes}m)': f"{l2:.2f}",
                     f'Volume({win_minutes}m)': f"{max(0, v2-v1):.2f}", 
                     f'{win_minutes}m Change': f"{((p2/p1-1)*100 if p1 else 0):.2f}",
-                    'Open Chart': f'=HYPERLINK("https://dexscreener.com/{DEXSCREENER_CHAIN_ID}/{addr}","Open Chart")',
-                    'Snipe': 'Yes' if is_snipe else '', 
-                    'Ghost Buyer': 'Yes' if is_ghost else ''
-                }
-                
-                writer.writerow(row_data)
+                    'Open Chart': f'=HYPERLINK(\"https://dexscreener.com/{DEXSCREENER_CHAIN_ID}/{addr}\",\"Open Chart\")',
+                    'Snipe': 'Yes' if t_data in snipe_candidates else '', 
+                    'Ghost Buyer': 'Yes' if t_data in ghost_buyer_candidates else ''
+                })
                 existing_tokens.add(addr)
                 rows_added += 1
                 
-                # Log the added token with its risk flags
-                risk_flags = []
-                if is_snipe: risk_flags.append("SNIPE")
-                if is_ghost: risk_flags.append("GHOST BUYER")
-                risk_str = ", ".join(risk_flags) if risk_flags else "No risk flags"
-                logging.info(f" Added token to CSV: {row_data['Name']} - {risk_str}")
-                
         if rows_added > 0:
-            logging.info(f" Successfully added {rows_added} new tokens to {abs_csv_filepath}")
+            logging.info(f"Successfully added {rows_added} new tokens to {abs_csv_filepath}")
         else:
-            logging.info(" No new tokens were added to the CSV file")
+            logging.info("No new tokens were added to the CSV file")
             
     except IOError as e: 
-        logging.error(f" Error writing to {abs_csv_filepath}: {e}")
+        logging.error(f"Error writing to {abs_csv_filepath}: {e}")
     except Exception as e:
-        logging.error(f" Unexpected error in process_window: {e}", exc_info=True)
-    
+        logging.error(f"Unexpected error in process_window: {e}")
     return {'whale': passed_whale_trap, 'snipe': snipe_candidates, 'ghost': ghost_buyer_candidates}
 
 def initialize_all_files_once(script_dir_path):
@@ -753,10 +534,10 @@ if __name__ == "__main__":
     try:
         while True:
             # Check if we need to process a new token
-            # Check if monitoring is active, check if we need to force a restart
+            current_time = time.time()
+            
+            # If monitoring is active, check if we need to force a restart
             if os.path.exists(monitoring_lock_file_path):
-                # Get current time for lock file age calculation
-                current_time = time.time()
                 # If monitoring has been active for too long (5 minutes), force a restart
                 lock_file_age = current_time - os.path.getmtime(monitoring_lock_file_path)
                 if lock_file_age > 300:  # 5 minutes
@@ -779,25 +560,8 @@ if __name__ == "__main__":
             aggregated_results = {}
             try:
                 aggregated_results = main_token_processing_loop(SCRIPT_DIRECTORY)
-                if aggregated_results: 
-                    logging.info(f"Cycle complete. Results for windows: {list(aggregated_results.keys())}")
-                    
-                    # Log detailed risk information for each token
-                    for window_min, results in aggregated_results.items():
-                        for category, tokens in results.items():
-                            for token in tokens:
-                                token_address = token.get('tokenAddress', 'N/A')
-                                token_name = token.get('name', 'Unknown')
-                                
-                                # Log risk flags if present
-                                if category == 'snipe':
-                                    logging.warning(f"🔫 SNIPE DETECTED: {token_name} ({token_address}) in {window_min}m window")
-                                elif category == 'ghost':
-                                    logging.warning(f"👻 GHOST BUYER DETECTED: {token_name} ({token_address}) in {window_min}m window")
-                                elif category == 'whale':
-                                    logging.warning(f"🐳 WHALE TRAP DETECTED: {token_name} ({token_address}) in {window_min}m window")
-                else: 
-                    logging.info("Cycle complete. No results from window processing.")
+                if aggregated_results: logging.info(f"Cycle complete. Results for windows: {list(aggregated_results.keys())}")
+                else: logging.info("Cycle complete. No results from window processing.")
             except Exception as e_main_loop:
                 logging.error(f"Unhandled exception in main processing loop: {e_main_loop}", exc_info=True)
             
@@ -817,8 +581,7 @@ if __name__ == "__main__":
                                     name = sanitize_name(tk_item.get('name'),tk_item.get('symbol'))
                                     url = f"https://dexscreener.com/{DEXSCREENER_CHAIN_ID}/{addr}"
                                     w.writerow([wm,cat_name,addr,name,url])
-                except Exception as e_rep: 
-                    logging.error(f"Hourly report error: {e_rep}")
+                except Exception as e_rep: logging.error(f"Hourly report error: {e_rep}")
             
             logging.info(f"Rechecking monitoring lock in {check_interval_seconds}s...")
             time.sleep(check_interval_seconds)

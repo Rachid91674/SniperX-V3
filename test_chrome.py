@@ -53,8 +53,16 @@ MAX_BUBBLEMAPS_RETRIES = 3
 PROCESSED_TOKENS_LOCK = threading.Lock()
 CLUSTER_SUMMARY_LOCK = threading.Lock()
 
-from logger_utils import setup_logging
-
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] [%(threadName)s] %(module)s:%(lineno)d - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=[
+            logging.FileHandler("bubblemaps_extractor_threaded.log", mode='w', encoding='utf-8'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
 setup_logging()
 
 def detect_chrome_binary_path(provided_path: str | None) -> str | None:

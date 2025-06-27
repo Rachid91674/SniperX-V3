@@ -10,7 +10,19 @@ import json
 from decimal import Decimal
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
+try:
+    from telegram.ext import (
+        Application,
+        CommandHandler,
+        MessageHandler,
+        filters,
+        CallbackContext,
+        CallbackQueryHandler,
+    )
+except ImportError as e:  # pragma: no cover - guidance for missing package
+    raise ImportError(
+        "python-telegram-bot >=20.0 is required. Install it with: pip install -U \"python-telegram-bot>=20.0\""
+    ) from e
 import time
 from datetime import datetime
 

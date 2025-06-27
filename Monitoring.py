@@ -297,26 +297,8 @@ def load_token_from_csv(csv_file_path):
                 price_impact_ok = price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR
                 liquidity_ok = liquidity_val >= MIN_LIQUIDITY_USD
                 
-<<<<<<< HEAD
-                print(f"\n📊 Token Analysis: {token_name}")
-                print(f"🔍 Price Impact: {price_impact_val:.2f}% (Max: {PRICE_IMPACT_THRESHOLD_MONITOR}%) - {'✅ OK' if price_impact_ok else '❌ Too High'}")
-                print(f"💰 Liquidity: ${liquidity_val:,.2f} (Min: ${MIN_LIQUIDITY_USD:,.2f}) - {'✅ OK' if liquidity_ok else '❌ Insufficient'}")
-                
-                # Log risk factors if available
-                risk_status = row.get('Overall_Risk_Status', 'N/A')
-                if risk_status != 'N/A':
-                    print(f"⚠️  Risk Status: {risk_status}")
-                    risk_details = row.get('Risk_Warning_Details', '')
-                    if risk_details and risk_details != 'None':
-                        # Split the risk details by semicolon and print each on a new line
-                        details_list = risk_details.split('; ')
-                        for detail in details_list:
-                            if detail.strip():  # Only print non-empty details
-                                print(f"   • {detail.strip()}")
-=======
                 print(f"Price Impact: {price_impact_val}% (Max: {PRICE_IMPACT_THRESHOLD_MONITOR}%) - {'OK' if price_impact_ok else 'Too High'}")
                 print(f"Liquidity: ${liquidity_val:,.2f} (Min: ${MIN_LIQUIDITY_USD:,.2f}) - {'OK' if liquidity_ok else 'Insufficient'}")
->>>>>>> c97ae39f49f0753dc55b22e10f03c156e3bb535b
                 
                 if price_impact_ok and liquidity_ok:
                     print(f"✅ Token meets all criteria: {token_name}")

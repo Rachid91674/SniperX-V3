@@ -17,6 +17,16 @@ import logging
 import signal
 load_dotenv()
 
+def safe_float_convert(value, default):
+    if not value:
+        return default
+    # Remove any quotes and whitespace
+    value = str(value).strip('\'"').strip()
+    try:
+        return float(value) if value else default
+    except ValueError:
+        return default
+
 # --- Global Configurations & Constants ---
 TEST_MODE = len(sys.argv) > 1 and sys.argv[1] == "--test"
 MORALIS_API_KEYS = [os.getenv(f"MORALIS_API_KEY_{i}", "").split('#')[0].strip() for i in range(1,6)]
@@ -43,35 +53,35 @@ for part in parts:
 if not WINDOW_MINS: WINDOW_MINS = [1, 5]
 
 raw_pl = os.getenv("PRELIM_LIQUIDITY_THRESHOLD", "5000").split('#')[0].strip()
-PRELIM_LIQUIDITY_THRESHOLD = float(raw_pl) if raw_pl else 5000.0
+PRELIM_LIQUIDITY_THRESHOLD = safe_float_convert(raw_pl, 5000.0)
 raw_ppmin = os.getenv("PRELIM_MIN_PRICE_USD", "0.00001").split('#')[0].strip()
-PRELIM_MIN_PRICE_USD = float(raw_ppmin) if raw_ppmin else 0.00001
+PRELIM_MIN_PRICE_USD = safe_float_convert(raw_ppmin, 0.00001)
 raw_ppmax = os.getenv("PRELIM_MAX_PRICE_USD", "0.0004").split('#')[0].strip()
-PRELIM_MAX_PRICE_USD = float(raw_ppmax) if raw_ppmax else 0.0004
+PRELIM_MAX_PRICE_USD = safe_float_convert(raw_ppmax, 0.0004)
 raw_age = os.getenv("PRELIM_AGE_DELTA_MINUTES", "120").split('#')[0].strip()
-PRELIM_AGE_DELTA_MINUTES = float(raw_age) if raw_age else 120.0
+PRELIM_AGE_DELTA_MINUTES = safe_float_convert(raw_age, 120.0)
 raw_wp = os.getenv("WHALE_PRICE_UP_PCT", "0.0").split('#')[0].strip()
-WHALE_PRICE_UP_PCT = float(raw_wp) if raw_wp else 0.0
+WHALE_PRICE_UP_PCT = safe_float_convert(raw_wp, 0.0)
 raw_wlq = os.getenv("WHALE_LIQUIDITY_UP_PCT", "0.0").split('#')[0].strip()
-WHALE_LIQUIDITY_UP_PCT = float(raw_wlq) if raw_wlq else 0.0
+WHALE_LIQUIDITY_UP_PCT = safe_float_convert(raw_wlq, 0.0)
 raw_wvd = os.getenv("WHALE_VOLUME_DOWN_PCT", "0.0").split('#')[0].strip()
-WHALE_VOLUME_DOWN_PCT = float(raw_wvd) if raw_wvd else 0.0
+WHALE_VOLUME_DOWN_PCT = safe_float_convert(raw_wvd, 0.0)
 raw_sl1 = os.getenv("SNIPE_LIQUIDITY_MIN_PCT_1M","0.1").split('#')[0].strip()
-SNIPE_LIQUIDITY_MIN_PCT_1M = float(raw_sl1) if raw_sl1 else 0.1
+SNIPE_LIQUIDITY_MIN_PCT_1M = safe_float_convert(raw_sl1, 0.1)
 raw_sm1 = os.getenv("SNIPE_LIQUIDITY_MULTIPLIER_1M","1.5").split('#')[0].strip()
-SNIPE_LIQUIDITY_MULTIPLIER_1M = float(raw_sm1) if raw_sm1 else 1.5
+SNIPE_LIQUIDITY_MULTIPLIER_1M = safe_float_convert(raw_sm1, 1.5)
 raw_sup = os.getenv("SNIPE_LIQUIDITY_UP_PCT", "0.30").split('#')[0].strip()
-SNIPE_LIQUIDITY_UP_PCT_CONFIG = float(raw_sup) if raw_sup else 0.30
+SNIPE_LIQUIDITY_UP_PCT_CONFIG = safe_float_convert(raw_sup, 0.30)
 raw_sl5 = os.getenv("SNIPE_LIQUIDITY_MIN_PCT_5M", str(SNIPE_LIQUIDITY_UP_PCT_CONFIG)).split('#')[0].strip()
-SNIPE_LIQUIDITY_MIN_PCT_5M = float(raw_sl5) if raw_sl5 else SNIPE_LIQUIDITY_UP_PCT_CONFIG
+SNIPE_LIQUIDITY_MIN_PCT_5M = safe_float_convert(raw_sl5, SNIPE_LIQUIDITY_UP_PCT_CONFIG)
 raw_sm5 = os.getenv("SNIPE_LIQUIDITY_MULTIPLIER_5M","5").split('#')[0].strip()
-SNIPE_LIQUIDITY_MULTIPLIER_5M = float(raw_sm5) if raw_sm5 else 5.0
+SNIPE_LIQUIDITY_MULTIPLIER_5M = safe_float_convert(raw_sm5, 5.0)
 raw_gv1 = os.getenv("GHOST_VOLUME_MIN_PCT_1M", "0.5").split('#')[0].strip()
-GHOST_VOLUME_MIN_PCT_1M = float(raw_gv1) if raw_gv1 else 0.5
+GHOST_VOLUME_MIN_PCT_1M = safe_float_convert(raw_gv1, 0.5)
 raw_gv5 = os.getenv("GHOST_VOLUME_MIN_PCT_5M", "0.5").split('#')[0].strip()
-GHOST_VOLUME_MIN_PCT_5M = float(raw_gv5) if raw_gv5 else 0.5
+GHOST_VOLUME_MIN_PCT_5M = safe_float_convert(raw_gv5, 0.5)
 raw_gpr = os.getenv("GHOST_PRICE_REL_MULTIPLIER", "2").split('#')[0].strip()
-GHOST_PRICE_REL_MULTIPLIER = float(raw_gpr) if raw_gpr else 2.0
+GHOST_PRICE_REL_MULTIPLIER = safe_float_convert(raw_gpr, 2.0)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")

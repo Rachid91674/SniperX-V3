@@ -41,16 +41,8 @@ DEFAULT_MAX_WORKERS = 1 # <<<< SET TO 1 AS PER USER REQUEST >>>>
 DEXSCREENER_CHAIN_ID = "solana"
 raw_snipe_age_env = os.getenv("SNIPE_GRADUATED_DELTA_MINUTES", "60")
 SNIPE_GRADUATED_DELTA_MINUTES_FLOAT = float(raw_snipe_age_env.split('#')[0].strip()) if raw_snipe_age_env else 60.0
-raw_wt = os.getenv("WHALE_TRAP_WINDOW_MINUTES", "1,5")
-raw_wt = raw_wt.split('#')[0].strip()
-parts = raw_wt.split(',')
-WINDOW_MINS = []
-for part in parts:
-    try:
-        val = int(part.strip())
-        if val > 0 : WINDOW_MINS.append(val)
-    except: pass
-if not WINDOW_MINS: WINDOW_MINS = [1, 5]
+# Only use 1-minute window
+WINDOW_MINS = [1]
 
 raw_pl = os.getenv("PRELIM_LIQUIDITY_THRESHOLD", "5000").split('#')[0].strip()
 PRELIM_LIQUIDITY_THRESHOLD = safe_float_convert(raw_pl, 5000.0)
@@ -175,12 +167,24 @@ def whale_trap_avoidance(token_address, first_snap, second_snap):
     price_change_pct = (price2 - price1) / price1 if price1 else float('inf') if price2 > 0 else 0
     volume_change_pct = (volume2 - volume1) / volume1 if volume1 else float('inf') if volume2 > 0 else 0
     liq_change_pct = (liquidity2 - liquidity1) / liquidity1 if liquidity1 else float('inf') if liquidity2 > 0 else 0
-    if price_change_pct > WHALE_PRICE_UP_PCT and liq_change_pct > WHALE_LIQUIDITY_UP_PCT and volume_change_pct < WHALE_VOLUME_DOWN_PCT:
-        logging.warning(f"[WARN] Whale trap for {token_address}: Price↑, Liquidity↑, Vol Δ {volume_change_pct:.2%}")
-        return False
-    if price_change_pct > WHALE_PRICE_UP_PCT and liq_change_pct > WHALE_LIQUIDITY_UP_PCT and volume_change_pct >= WHALE_VOLUME_DOWN_PCT:
-        return True
-    return False
+    
+    # Enhanced logging for whale trap analysis
+    logging.info(f"[WHALE TRAP ANALYSIS] Token: {token_address}")
+    logging.info(f"  Price: ${price1:.8f} → ${price2:.8f} ({price_change_pct:+.2%})")
+    logging.info(f"  Liquidity: ${liquidity1:,.2f} → ${liquidity2:,.2f} ({liq_change_pct:+.2%})")
+    logging.info(f"  Volume: ${volume1:,.2f} → ${volume2:,.2f} ({volume_change_pct:+.2%})")
+    
+    is_whale_trap = (price_change_pct > WHALE_PRICE_UP_PCT and 
+                    liq_change_pct > WHALE_LIQUIDITY_UP_PCT and 
+                    volume_change_pct < WHALE_VOLUME_DOWN_PCT)
+    
+    if is_whale_trap:
+        logging.warning(f"[WHALE TRAP DETECTED] {token_address}: Price↑{price_change_pct:+.2%}, "
+                      f"Liq↑{liq_change_pct:+.2%}, Vol↓{volume_change_pct:+.2%}")
+    else:
+        logging.info("[WHALE TRAP] No whale trap detected")
+    
+    return not is_whale_trap
 
 def apply_whale_trap(tokens, first_snaps, second_snaps):
     passed = []
@@ -236,28 +240,86 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
     second_snaps = {addr: get_token_metrics(second_data.get(addr)) for addr in token_addresses}
     logging.info(f"Captured t1 for {len(second_snaps)} tokens in {win_minutes}m window.")
     
+    # Initialize counters
+    total_tokens = len(prelim_tokens)
+    whale_trap_passed = 0
+    snipe_detected = 0
+    ghost_detected = 0
+    
+    # First apply whale trap filter
     passed_whale_trap = apply_whale_trap(prelim_tokens, first_snaps, second_snaps)
+    whale_trap_passed = len(passed_whale_trap)
+    
+    logging.info(f"=== Token Processing Summary ===")
+    logging.info(f"Total tokens processed: {total_tokens}")
+    logging.info(f"Tokens passed whale trap check: {whale_trap_passed}/{total_tokens} ({whale_trap_passed/max(total_tokens, 1)*100:.1f}%)")
+    
     snipe_candidates, ghost_buyer_candidates = [], []
     now_utc = datetime.datetime.now(datetime.timezone.utc)
 
+    # Only process tokens that passed whale trap check
     for token_info in passed_whale_trap:
-        grad_str = token_info.get('graduatedAt')
-        if not grad_str: continue
-        grad_dt = dateparser.parse(grad_str)
-        if not isinstance(grad_dt, datetime.datetime): continue
-        grad_dt = grad_dt.replace(tzinfo=datetime.timezone.utc) if grad_dt.tzinfo is None else grad_dt.astimezone(datetime.timezone.utc)
-        age_minutes = (now_utc - grad_dt).total_seconds() / 60
-        if age_minutes > SNIPE_GRADUATED_DELTA_MINUTES_FLOAT: continue
-        addr = token_info.get('tokenAddress')
-        p1,l1,v1 = first_snaps.get(addr,(0,0,0)); p2,l2,v2 = second_snaps.get(addr,(0,0,0))
-        liq_chg = (l2-l1)/l1 if l1 else float('inf') if l2 else 0
-        vol_chg = (v2-v1)/v1 if v1 else float('inf') if v2 else 0
-        prc_chg = (p2-p1)/p1 if p1 else float('inf') if p2 else 0
-        if vol_chg > 0.01 and prc_chg > 0.01 and liq_chg >= 0.05 and liq_chg > vol_chg and liq_chg > prc_chg:
-            snipe_candidates.append(token_info)
-        ghost_vol_min = GHOST_VOLUME_MIN_PCT_1M if win_minutes == 1 else GHOST_VOLUME_MIN_PCT_5M
-        if vol_chg > ghost_vol_min and abs(prc_chg) < (vol_chg * GHOST_PRICE_REL_MULTIPLIER):
-            ghost_buyer_candidates.append(token_info)
+        try:
+            grad_str = token_info.get('graduatedAt')
+            if not grad_str: 
+                continue
+                
+            grad_dt = dateparser.parse(grad_str)
+            if not isinstance(grad_dt, datetime.datetime): 
+                continue
+                
+            # Handle timezone
+            grad_dt = grad_dt.replace(tzinfo=datetime.timezone.utc) if grad_dt.tzinfo is None else grad_dt.astimezone(datetime.timezone.utc)
+            age_minutes = (now_utc - grad_dt).total_seconds() / 60
+            
+            # Skip if token is too old for snipe detection
+            if age_minutes > SNIPE_GRADUATED_DELTA_MINUTES_FLOAT: 
+                continue
+                
+            addr = token_info.get('tokenAddress')
+            if not addr:
+                continue
+                
+            # Get price, liquidity and volume changes
+            p1, l1, v1 = first_snaps.get(addr, (0, 0, 0))
+            p2, l2, v2 = second_snaps.get(addr, (0, 0, 0))
+            
+            liq_chg = (l2 - l1) / l1 if l1 else float('inf') if l2 else 0
+            vol_chg = (v2 - v1) / v1 if v1 else float('inf') if v2 else 0
+            prc_chg = (p2 - p1) / p1 if p1 else float('inf') if p2 else 0
+            
+            # Check for snipe pattern
+            if (vol_chg > 0.01 and prc_chg > 0.01 and 
+                liq_chg >= 0.05 and liq_chg > vol_chg and liq_chg > prc_chg):
+                snipe_candidates.append(token_info)
+                snipe_detected += 1
+                logging.info(f"[SNIPE DETECTED] {addr} - "
+                           f"LiqΔ: {liq_chg:+.2%}, VolΔ: {vol_chg:+.2%}, PriceΔ: {prc_chg:+.2%}")
+            
+            # Check for ghost buyer pattern
+            ghost_vol_min = GHOST_VOLUME_MIN_PCT_1M if win_minutes == 1 else GHOST_VOLUME_MIN_PCT_5M
+            is_ghost = (vol_chg > ghost_vol_min and 
+                       abs(prc_chg) < (vol_chg * GHOST_PRICE_REL_MULTIPLIER))
+            
+            if is_ghost:
+                ghost_buyer_candidates.append(token_info)
+                ghost_detected += 1
+                logging.info(f"[GHOST BUYER DETECTED] {addr} - "
+                           f"VolΔ: {vol_chg:+.2%} > {ghost_vol_min:.0%}, "
+                           f"PriceΔ: {prc_chg:+.2%} < {vol_chg * GHOST_PRICE_REL_MULTIPLIER:.2%}")
+                           
+        except Exception as e:
+            addr = token_info.get('tokenAddress', 'unknown')
+            logging.error(f"Error processing token {addr}: {str(e)}")
+            continue
+            
+    # Log final statistics
+    logging.info("=== Processing Complete ===")
+    logging.info(f"Total tokens: {total_tokens}")
+    logging.info(f"Passed whale trap: {whale_trap_passed} ({whale_trap_passed/max(total_tokens, 1)*100:.1f}%)")
+    logging.info(f"Snipe detections: {snipe_detected} ({snipe_detected/max(whale_trap_passed, 1)*100:.1f}% of passed)")
+    logging.info(f"Ghost buyer detections: {ghost_detected} ({ghost_detected/max(whale_trap_passed, 1)*100:.1f}% of passed)")
+    logging.info("===========================")
             
     final_results_for_csv = snipe_candidates + [t for t in ghost_buyer_candidates if t not in snipe_candidates]
     
@@ -276,9 +338,47 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
         with open(abs_csv_filepath, 'a' if os.path.exists(abs_csv_filepath) else 'w', 
                  newline='', encoding='utf-8') as csvfile:
             
-            fieldnames = ['Address','Name','Price USD',f'Liquidity({win_minutes}m)',
-                        f'Volume({win_minutes}m)',f'{win_minutes}m Change',
-                        'Open Chart','Snipe','Ghost Buyer']
+            # Get token_risk_analysis.csv data if it exists
+            risk_data = {}
+            risk_headers = []
+            risk_analysis_path = os.path.join(script_dir_path, 'token_risk_analysis.csv')
+            if os.path.exists(risk_analysis_path):
+                with open(risk_analysis_path, 'r', newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    risk_headers = reader.fieldnames or []
+                    risk_data = {row['Address']: row for row in reader}
+            
+            # Define base fieldnames
+            base_fieldnames = ['Address', 'Name', 'Price USD', f'Liquidity({win_minutes}m)',
+                             f'Volume({win_minutes}m)', f'{win_minutes}m Change',
+                             'Open Chart', 'Snipe', 'Ghost Buyer']
+            
+            # Combine fieldnames, ensuring no duplicates
+            fieldnames = base_fieldnames + [h for h in risk_headers if h not in base_fieldnames]
+            
+            # Also update trades.csv headers if it exists
+            trades_path = os.path.join(script_dir_path, 'trades.csv')
+            if os.path.exists(trades_path):
+                with open(trades_path, 'r+', newline='', encoding='utf-8') as f:
+                    existing_headers = []
+                    try:
+                        reader = csv.reader(f)
+                        existing_headers = next(reader, [])
+                        if set(fieldnames) != set(existing_headers):
+                            # Read all data
+                            f.seek(0)
+                            data = list(csv.DictReader(f))
+                            # Write back with new headers
+                            f.seek(0)
+                            f.truncate()
+                            writer = csv.DictWriter(f, fieldnames=fieldnames)
+                            writer.writeheader()
+                            writer.writerows(data)
+                    except StopIteration:
+                        # File is empty, just write headers
+                        f.seek(0)
+                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                        writer.writeheader()
             
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             if write_header:
@@ -293,7 +393,8 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
                 p1, l1, v1 = first_snaps.get(addr, (0, 0, 0))
                 p2, l2, v2 = second_snaps.get(addr, (0, 0, 0))
                 
-                writer.writerow({
+                # Prepare base row data
+                row_data = {
                     'Address': addr, 
                     'Name': sanitize_name(t_data.get('name'), t_data.get('symbol')),
                     'Price USD': f"{p2:.8f}", 
@@ -303,7 +404,15 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
                     'Open Chart': f'=HYPERLINK(\"https://dexscreener.com/{DEXSCREENER_CHAIN_ID}/{addr}\",\"Open Chart\")',
                     'Snipe': 'Yes' if t_data in snipe_candidates else '', 
                     'Ghost Buyer': 'Yes' if t_data in ghost_buyer_candidates else ''
-                })
+                }
+                
+                # Add risk analysis data if available
+                if addr in risk_data:
+                    for field in risk_headers:
+                        if field not in row_data and field in risk_data[addr]:
+                            row_data[field] = risk_data[addr][field]
+                
+                writer.writerow(row_data)
                 existing_tokens.add(addr)
                 rows_added += 1
                 

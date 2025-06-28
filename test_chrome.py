@@ -497,6 +497,13 @@ def process_single_token_threaded(token_address_with_config: tuple):
     token_address, chrome_binary_path_config, chrome_driver_path_override_config = token_address_with_config
     thread_id_str = f"Thread-{threading.get_ident()}"
     thread_driver = None
+    
+    # Skip if token is already in processed tokens (this is a safety check)
+    processed_tokens = load_processed_tokens_threadsafe(OPENED_TOKENS_FILE)
+    if token_address in processed_tokens:
+        logging.info(f"[{thread_id_str}] Token {token_address} already processed, skipping.")
+        return token_address, True
+        
     logging.info(f"[{thread_id_str}] --- Starting processing for token: {token_address} ---")
 
     try: # Outer try for driver initialization and final cleanup
@@ -839,6 +846,33 @@ def get_file_checksum(file_path: str) -> str:
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
+def remove_token_from_csv(csv_fpath: str, token_address: str) -> bool:
+    """Remove a token from the CSV file if it exists.
+    Returns True if the token was found and removed, False otherwise."""
+    try:
+        # Read all lines from CSV
+        with open(csv_fpath, 'r', newline='', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # Find and remove the line containing the token
+        original_length = len(lines)
+        lines = [line for line in lines if token_address.lower() not in line.lower()]
+        
+        # If no lines were removed, return False
+        if len(lines) == original_length:
+            return False
+            
+        # Write the remaining lines back to the file
+        with open(csv_fpath, 'w', newline='', encoding='utf-8') as f:
+            f.writelines(lines)
+            
+        logging.info(f"Removed token {token_address} from {csv_fpath}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error removing token {token_address} from {csv_fpath}: {e}")
+        return False
+
 def monitor_and_process_tokens(csv_fpath: str, chrome_bin_path: str, chrome_drv_path: str | None):
     # Clean up any duplicate entries in the CSV file first
     clean_duplicate_entries(csv_fpath)
@@ -849,6 +883,7 @@ def monitor_and_process_tokens(csv_fpath: str, chrome_bin_path: str, chrome_drv_
     last_checksum = get_file_checksum(csv_fpath)
     last_check_time = time.time()
     processed_since_last_run: set[str] = set()
+    failed_tokens = {}  # Track failed tokens and their attempt count
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="BubbleWorker") as executor:
@@ -865,11 +900,26 @@ def monitor_and_process_tokens(csv_fpath: str, chrome_bin_path: str, chrome_drv_
                             with PROCESSED_TOKENS_LOCK:
                                 save_processed_token_threadsafe(OPENED_TOKENS_FILE, token_addr)
                                 processed_set.add(token_addr)
+                                # Remove from failed tokens if it was there
+                                failed_tokens.pop(token_addr, None)
                             logging.info(f"Bubblemaps SUCCESS for {token_addr}.")
                             newly_processed_count += 1
                             processed_since_last_run.add(token_addr)
                             processed_this_cycle = True
-                        else: logging.error(f"Bubblemaps FAILED for {token_addr}.")
+                        else: 
+                            # Increment failure count
+                            failed_count = failed_tokens.get(token_addr, 0) + 1
+                            failed_tokens[token_addr] = failed_count
+                            logging.error(f"Bubblemaps FAILED for {token_addr} (attempt {failed_count}/2).")
+                            
+                            # If failed 2 times, remove from CSV
+                            if failed_count >= 2:
+                                logging.warning(f"Token {token_addr} failed {failed_count} times. Removing from {csv_fpath}")
+                                remove_token_from_csv(csv_fpath, token_addr)
+                                # Remove from tracking
+                                failed_tokens.pop(token_addr, None)
+                                # Remove from in_flight to allow processing of other tokens
+                                in_flight.discard(token_addr)
                     except Exception as exc: logging.error(f"Token {token_addr} thread exception: {exc}")
 
                 if newly_processed_count > 0 and not active_futures:

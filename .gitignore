@@ -43,4 +43,9 @@ htmlcov/
 wallet_balance.json
 .sniperx_first_run_complete
 bubblemaps_token_data/
+# Explicitly ignore runtime CSV output
+token_risk_analysis.csv
+filtered_tokens_with_all_risks.csv
+trades.csv
+token_risk_analysis.csv.bak
 !sample_data/*.csv

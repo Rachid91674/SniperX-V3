@@ -41,6 +41,15 @@ class RiskCSVHandler(FileSystemEventHandler):
         except Exception:
             pass
 
+    def _pid_is_running(self, pid: int) -> bool:
+        """Check whether a PID is currently running."""
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return False
+        else:
+            return True
+
     def _cleanup_previous_process(self):
         if os.path.exists(PID_FILE):
             try:
@@ -72,8 +81,17 @@ class RiskCSVHandler(FileSystemEventHandler):
         if current_time - self.last_launch_time < self.cooldown_seconds:
             return
         if os.path.exists(LOCK_FILE_PATH):
-            if self.running_process and self.running_process.poll() is None:
-                print(f"Watchdog: Monitoring already active (lock file {LOCK_FILE_PATH}). Skipping restart.")
+            pid_in_lock = None
+            try:
+                with open(LOCK_FILE_PATH, "r") as lf:
+                    pid_in_lock = int(lf.read().strip())
+            except Exception:
+                pid_in_lock = None
+
+            if pid_in_lock and self._pid_is_running(pid_in_lock):
+                print(
+                    f"Watchdog: Monitoring already active (lock file {LOCK_FILE_PATH}, PID {pid_in_lock}). Skipping restart."
+                )
                 return
             else:
                 try:

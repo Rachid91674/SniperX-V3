@@ -4,6 +4,7 @@ import json
 import aiohttp
 import csv
 import os
+from db_logger import log_to_db
 from pathlib import Path
 import requests
 import subprocess
@@ -97,7 +98,7 @@ def log_trade_result(token_name, mint_address, reason, buy_price=None, sell_pric
         if gain_loss_pct is not None:
             trade_result = 'PROFIT' if gain_loss_pct > 0 else 'LOSS' if gain_loss_pct < 0 else 'BREAKEVEN'
             
-        writer.writerow({
+        row = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'token_name': token_name,
             'mint_address': mint_address,
@@ -106,7 +107,12 @@ def log_trade_result(token_name, mint_address, reason, buy_price=None, sell_pric
             'sell_price': f"{sell_price:.9f}" if sell_price is not None else '',
             'gain_loss_pct': f"{gain_loss_pct:.2f}%" if gain_loss_pct is not None else '',
             'result': trade_result
-        })
+        }
+        writer.writerow(row)
+        try:
+            log_to_db('trades', row)
+        except Exception as db_exc:
+            print(f"[DB-ERROR] Failed to log trade row: {db_exc}")
     
     # Also print to console for immediate feedback
     if gain_loss_pct is not None:

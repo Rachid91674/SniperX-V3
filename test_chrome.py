@@ -17,6 +17,7 @@ import threading
 import random
 import hashlib
 from collections import OrderedDict
+from db_logger import log_to_db
 
 # Selenium imports
 from selenium import webdriver
@@ -481,11 +482,29 @@ def save_cluster_summary_data(token_address: str, processed_cluster_data: dict):
         with open(summary_filepath, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if file_needs_header:
-                writer.writerow(['Token_Address','Num_Unique_Clusters','Global_Cluster_Percentage','Individual_Cluster_Percentages','Status','Status_Color'])
+                writer.writerow([
+                    'Token_Address','Num_Unique_Clusters','Global_Cluster_Percentage',
+                    'Individual_Cluster_Percentages','Status','Status_Color'
+                ])
                 logging.info(f"Created new cluster summary file with headers at {summary_filepath}")
-            writer.writerow([token_address,num_distinct_clusters,global_cluster_percentage_sum_str,individual_cluster_percentages_str,token_status_eval,status_color_eval])
-            f.flush()  # Force write to disk
-            os.fsync(f.fileno())  # Ensure it's written to disk
+            row = [
+                token_address, num_distinct_clusters, global_cluster_percentage_sum_str,
+                individual_cluster_percentages_str, token_status_eval, status_color_eval
+            ]
+            writer.writerow(row)
+            f.flush()
+            os.fsync(f.fileno())
+        try:
+            log_to_db('cluster_summaries', {
+                'Token_Address': token_address,
+                'Num_Unique_Clusters': num_distinct_clusters,
+                'Global_Cluster_Percentage': global_cluster_percentage_sum_str,
+                'Individual_Cluster_Percentages': individual_cluster_percentages_str,
+                'Status': token_status_eval,
+                'Status_Color': status_color_eval
+            })
+        except Exception as db_exc:
+            logging.error(f"DB log error: {db_exc}")
         logging.info(f"Saved cluster summary for {token_address}: Clusters={num_distinct_clusters}, GlobalSupply={global_cluster_percentage_sum_str}%, Status={token_status_eval}")
     except IOError as e:
         logging.error(f"Error saving cluster summary for {token_address}: {e}")

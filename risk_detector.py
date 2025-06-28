@@ -3,8 +3,9 @@ import math
 import requests
 import time
 import os
-import sys 
+import sys
 import logging
+from db_logger import log_to_db
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
@@ -323,6 +324,10 @@ def run_full_risk_analysis():
                 for row in results_to_write:
                     try:
                         writer.writerow(row)
+                        try:
+                            log_to_db('token_risk_analysis', row)
+                        except Exception as db_exc:
+                            logging.error(f"DB log error: {db_exc}")
                     except Exception as row_error:
                         logging.error(f"Error writing row to {OUTPUT_RISK_ANALYSIS_CSV}: {row_error}\nRow data: {row}")
                         continue

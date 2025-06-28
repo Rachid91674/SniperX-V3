@@ -28,13 +28,4 @@ pip install -U "python-telegram-bot>=20.0"
 
 ## Monitoring Watchdog
 
-`run_monitoring_on_analysis_change.py` monitors `token_risk_analysis.csv` and normally restarts `Monitoring.py` when the file changes. The watchdog now checks for the `monitoring_active.lock` file created by `Monitoring.py`. If the lock exists and the process is still running, the watchdog skips the restart to avoid interrupting an active token analysis. If the PID recorded in the lock file no longer represents a running process, the stale lock file is removed before launching `Monitoring.py` again.
-
-## Runtime Output
-
-When running the scripts:
-
-- `risk_detector.py` writes `token_risk_analysis.csv` and `filtered_tokens_with_all_risks.csv` to the project root.
-- `Monitoring.py` appends trade results to `trades.csv` in the same directory.
-
-Example CSVs for testing can be found under [`sample_data/`](sample_data/).
+`run_monitoring_on_analysis_change.py` monitors `token_risk_analysis.csv` and normally restarts `Monitoring.py` when the file changes. The watchdog now checks for the `monitoring_active.lock` file created by `Monitoring.py`. If the lock exists and the process is still running, the watchdog skips the restart to avoid interrupting an active token analysis.

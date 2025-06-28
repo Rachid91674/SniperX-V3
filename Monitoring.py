@@ -282,8 +282,16 @@ def load_token_from_csv(csv_file_path):
                 token_name = row.get('Name', '').strip() or mint_address
                 print(f"\n--- Processing token: {token_name} ---")
                 
-                # Check risk warnings
+                # Check risk status and warnings
+                risk_status = row.get('Overall_Risk_Status', '').strip()
                 risk_warnings = row.get('Risk_Warning_Details', '').strip()
+                
+                # Skip tokens marked as 'Fail' in risk analysis
+                if risk_status == 'Fail':
+                    print(f"❌ Token rejected: Failed risk analysis - {risk_warnings}")
+                    continue
+                    
+                # Also skip if no risk warnings are present (old format check)
                 if risk_warnings == 'None':
                     print(f"❌ Token rejected: No risk warnings detected")
                     continue

@@ -11,9 +11,9 @@ from db_logger import log_to_db
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
 # --- Configuration ---
-HIGH_CLUSTER_THRESHOLD_PERCENT = 45.0 
-DUMP_RISK_THRESHOLD_LP_VS_CLUSTER = 100.0 
-PRICE_IMPACT_THRESHOLD_CLUSTER_SELL = 80.0 
+HIGH_CLUSTER_THRESHOLD_PERCENT = 15.3  # Changed from 12.3
+DUMP_RISK_THRESHOLD_LP_VS_CLUSTER = 100.1  # Changed from 99.2
+PRICE_IMPACT_THRESHOLD_CLUSTER_SELL = 76.3  # Changed from 74.3 
 TOTAL_SUPPLY = 1_000_000_000 
 DEXSCREENER_API_ENDPOINT_TEMPLATE = "https://api.dexscreener.com/v1/dex/tokens/{token_address}" 
 REQUESTS_TIMEOUT = 15 
@@ -303,16 +303,25 @@ def run_full_risk_analysis():
             if price_impact_pct >= PRICE_IMPACT_THRESHOLD_CLUSTER_SELL:
                 risk_warnings.append(f"HighPriceImpact({price_impact_pct:.1f}% >= {PRICE_IMPACT_THRESHOLD_CLUSTER_SELL:.1f}%)")
             
-            if not risk_warnings and lp_percent > 0: 
-                output_row["Overall_Risk_Status"] = "Low Risk"
-            elif risk_warnings:
-                output_row["Overall_Risk_Status"] = "High Risk"
+            # Check for all zeros case (invalid data)
+            if (cluster_percent_supply_val == 0.0 and 
+                dump_risk_ratio == 0.0 and 
+                price_impact_pct == 0.0):
+                output_row["Overall_Risk_Status"] = "Fail"
+                risk_warnings.append("InvalidData(All risk metrics are zero)")
+            elif not risk_warnings and lp_percent > 0: 
+                output_row["Overall_Risk_Status"] = "Pass"
             else:
-                output_row["Overall_Risk_Status"] = "Medium Risk / Check Data" 
+                output_row["Overall_Risk_Status"] = "Fail" 
         else:
             risk_warnings.append("DexScreenerDataN/A")
 
-        output_row["Risk_Warning_Details"] = "; ".join(risk_warnings) if risk_warnings else "Pass"
+        if not risk_warnings and lp_percent > 0:
+            # For passed tokens, show the actual values that passed
+            output_row["Risk_Warning_Details"] = f"Pass - Cluster: {cluster_percent_supply_val:.1f}%, Dump Risk: {dump_risk_ratio:.1f}x, Price Impact: {price_impact_pct:.1f}%"
+        else:
+            # For failed tokens, show the specific warnings with values
+            output_row["Risk_Warning_Details"] = "Fail - " + "; ".join(risk_warnings) if risk_warnings else "Fail - No liquidity data"
         results_to_write.append(output_row)
 
     if results_to_write:

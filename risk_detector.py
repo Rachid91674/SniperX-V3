@@ -25,6 +25,7 @@ OUTPUT_RISK_ANALYSIS_CSV = os.path.join(SCRIPT_DIR, "token_risk_analysis.csv")
 FILTERED_TOKENS_WITH_ALL_RISKS_CSV = os.path.join(
     SCRIPT_DIR, "filtered_tokens_with_all_risks.csv"
 )
+PROCESSED_TOKENS_FILE = os.path.join(SCRIPT_DIR, "processed_tokens.txt")
 
 # --- Helper Functions ---
 def get_primary_pool_data_from_dexscreener(token_address, chain_id="solana"):
@@ -153,6 +154,27 @@ def calculate_price_impact_cluster_sell(pool_project_token_amount, cluster_sell_
     price_ratio_after_sell = (pool_project_token_amount / (pool_project_token_amount + cluster_sell_token_amount)) ** 2
     price_impact_percent = (1 - price_ratio_after_sell) * 100
     return price_impact_percent
+
+def load_processed_tokens(filepath):
+    tokens = set()
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                tokens = {line.strip() for line in f if line.strip()}
+        except Exception as e:
+            logging.error(f"Error reading processed tokens from {filepath}: {e}")
+    return tokens
+
+def save_processed_tokens(filepath, token_addresses):
+    existing = load_processed_tokens(filepath)
+    try:
+        with open(filepath, 'a', encoding='utf-8') as f:
+            for addr in token_addresses:
+                if addr not in existing:
+                    f.write(addr + '\n')
+                    existing.add(addr)
+    except Exception as e:
+        logging.error(f"Error writing processed tokens to {filepath}: {e}")
 
 def load_cluster_summaries(path):
     if not os.path.exists(path):
@@ -317,6 +339,11 @@ def run_full_risk_analysis():
                         continue
 
             logging.info(f"Successfully wrote {len(results_to_write)} processed token entries to {OUTPUT_RISK_ANALYSIS_CSV} and {FILTERED_TOKENS_WITH_ALL_RISKS_CSV}")
+
+            # Record processed tokens to avoid duplicate work
+            processed_addresses = [row.get('Address') for row in results_to_write if row.get('Address')]
+            if processed_addresses:
+                save_processed_tokens(PROCESSED_TOKENS_FILE, processed_addresses)
             
             # Clean up input files
             try:

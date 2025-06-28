@@ -38,6 +38,7 @@ EXCHANGE_NAME = os.getenv("EXCHANGE_NAME", "pumpfun")
 FETCH_LIMIT = 100
 MORALIS_API_URL = f"https://solana-gateway.moralis.io/token/mainnet/exchange/{EXCHANGE_NAME}/graduated?limit={FETCH_LIMIT}"
 DEFAULT_MAX_WORKERS = 1 # <<<< SET TO 1 AS PER USER REQUEST >>>>
+PROCESSED_TOKENS_FILE = "processed_tokens.txt"
 DEXSCREENER_CHAIN_ID = "solana"
 raw_snipe_age_env = os.getenv("SNIPE_GRADUATED_DELTA_MINUTES", "60")
 SNIPE_GRADUATED_DELTA_MINUTES_FLOAT = float(raw_snipe_age_env.split('#')[0].strip()) if raw_snipe_age_env else 60.0
@@ -219,12 +220,31 @@ def load_existing_tokens(csv_filepath):
             logging.error(f"Error reading existing tokens from {csv_filepath}: {e}")
     return existing_tokens
 
+def load_processed_tokens(filepath):
+    tokens = set()
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                tokens = {line.strip() for line in f if line.strip()}
+        except Exception as e:
+            logging.error(f"Error reading processed tokens from {filepath}: {e}")
+    return tokens
+
+def save_processed_token(filepath, token_address):
+    try:
+        with open(filepath, 'a', encoding='utf-8') as f:
+            f.write(token_address + '\n')
+    except Exception as e:
+        logging.error(f"Error writing processed token {token_address} to {filepath}: {e}")
+
 def process_window(win_minutes, prelim_tokens, script_dir_path):
     sleep_seconds = win_minutes * 60
     abs_csv_filepath = os.path.join(script_dir_path, f"sniperx_results_{win_minutes}m.csv")
     
-    # Load existing tokens to avoid duplicates
+    # Load existing and previously processed tokens to avoid duplicates
     existing_tokens = load_existing_tokens(abs_csv_filepath)
+    processed_tokens = load_processed_tokens(os.path.join(script_dir_path, PROCESSED_TOKENS_FILE))
+    existing_tokens.update(processed_tokens)
     # Create a backup of the existing tokens to track new additions in this run
     existing_tokens_at_start = set(existing_tokens)
 
@@ -358,26 +378,28 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
             
             # Also update trades.csv headers if it exists
             trades_path = os.path.join(script_dir_path, 'trades.csv')
+            trade_extra_fields = [
+                'timestamp','token_name','mint_address','reason',
+                'buy_price','sell_price','gain_loss_pct','result'
+            ]
+            combined_trade_headers = fieldnames + [h for h in trade_extra_fields if h not in fieldnames]
             if os.path.exists(trades_path):
                 with open(trades_path, 'r+', newline='', encoding='utf-8') as f:
                     existing_headers = []
                     try:
                         reader = csv.reader(f)
                         existing_headers = next(reader, [])
-                        if set(fieldnames) != set(existing_headers):
-                            # Read all data
+                        if set(combined_trade_headers) != set(existing_headers):
                             f.seek(0)
                             data = list(csv.DictReader(f))
-                            # Write back with new headers
                             f.seek(0)
                             f.truncate()
-                            writer = csv.DictWriter(f, fieldnames=fieldnames)
+                            writer = csv.DictWriter(f, fieldnames=combined_trade_headers)
                             writer.writeheader()
                             writer.writerows(data)
                     except StopIteration:
-                        # File is empty, just write headers
                         f.seek(0)
-                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                        writer = csv.DictWriter(f, fieldnames=combined_trade_headers)
                         writer.writeheader()
             
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -414,6 +436,7 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
                 
                 writer.writerow(row_data)
                 existing_tokens.add(addr)
+                save_processed_token(os.path.join(script_dir_path, PROCESSED_TOKENS_FILE), addr)
                 rows_added += 1
                 
         if rows_added > 0:

@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import subprocess
 import logging
 import signal
+from db_logger import log_to_db
 load_dotenv()
 
 def safe_float_convert(value, default):
@@ -435,6 +436,10 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
                             row_data[field] = risk_data[addr][field]
                 
                 writer.writerow(row_data)
+                try:
+                    log_to_db("sniperx_results_1m", row_data)
+                except Exception as db_exc:
+                    logging.error(f"DB log error: {db_exc}")
                 existing_tokens.add(addr)
                 save_processed_token(os.path.join(script_dir_path, PROCESSED_TOKENS_FILE), addr)
                 rows_added += 1

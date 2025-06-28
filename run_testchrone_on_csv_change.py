@@ -118,6 +118,12 @@ class CSVChangeHandler(FileSystemEventHandler):
         except Exception:
             return
 
+        # Skip launching test_chrome.py if Monitoring.py is actively processing
+        lock_path = os.path.join(SCRIPT_DIR, "monitoring_active.lock")
+        if os.path.exists(lock_path):
+            print("Monitoring.py is running — Skipping launch of test_chrome.py")
+            return
+
         if event_abs_path == CSV_FILE_PATH:
             try:
                 current_mtime = os.path.getmtime(CSV_FILE_PATH)

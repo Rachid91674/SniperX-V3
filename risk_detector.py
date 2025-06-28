@@ -311,7 +311,7 @@ def run_full_risk_analysis():
         else:
             risk_warnings.append("DexScreenerDataN/A")
 
-        output_row["Risk_Warning_Details"] = "; ".join(risk_warnings) if risk_warnings else "None"
+        output_row["Risk_Warning_Details"] = "; ".join(risk_warnings) if risk_warnings else "Pass"
         results_to_write.append(output_row)
 
     if results_to_write:

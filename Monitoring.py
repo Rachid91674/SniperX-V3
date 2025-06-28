@@ -241,7 +241,7 @@ def load_token_from_csv(csv_file_path):
     """
     Loads tokens from the CSV file and returns the most recent valid token.
     A valid token entry must have a non-empty 'Address' field, sufficient liquidity,
-    and price impact below the threshold.
+    price impact below the threshold, and must have some risk warnings (not 'None').
     """
     valid_tokens = []
     print(f"\n=== Loading tokens from {csv_file_path} ===")
@@ -275,6 +275,12 @@ def load_token_from_csv(csv_file_path):
                     
                 token_name = row.get('Name', '').strip() or mint_address
                 print(f"\n--- Processing token: {token_name} ---")
+                
+                # Check risk warnings
+                risk_warnings = row.get('Risk_Warning_Details', '').strip()
+                if risk_warnings == 'None':
+                    print(f"❌ Token rejected: No risk warnings detected")
+                    continue
 
                 # Get price impact from either column name variant
                 price_impact_str = row.get('Price_Impact_Cluster_Sell_Percent',
@@ -297,6 +303,7 @@ def load_token_from_csv(csv_file_path):
                 price_impact_ok = price_impact_val < PRICE_IMPACT_THRESHOLD_MONITOR
                 liquidity_ok = liquidity_val >= MIN_LIQUIDITY_USD
                 
+                print(f"Risk Warnings: {risk_warnings}")
                 print(f"Price Impact: {price_impact_val}% (Max: {PRICE_IMPACT_THRESHOLD_MONITOR}%) - {'OK' if price_impact_ok else 'Too High'}")
                 print(f"Liquidity: ${liquidity_val:,.2f} (Min: ${MIN_LIQUIDITY_USD:,.2f}) - {'OK' if liquidity_ok else 'Insufficient'}")
                 
@@ -316,6 +323,7 @@ def load_token_from_csv(csv_file_path):
                 
     except FileNotFoundError:
         print(f"Error: Input CSV file '{csv_file_path}' not found. No token loaded.")
+        return None, None
 def remove_token_from_csv(mint_address_to_remove: str, csv_file_path: str) -> bool:
     """
     Removes a token's row from the CSV file based on its mint address.

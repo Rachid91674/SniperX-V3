@@ -667,6 +667,13 @@ async def trade_logic_and_price_display_loop():
     # Ensure processing flag is set when we start processing
     g_processing_token = True
 
+    # Create lock file to signal active monitoring
+    lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "monitoring_active.lock")
+    try:
+        with open(lock_path, "w") as f_lock:
+            f_lock.write("locked")
+    except Exception as e:
+        print(f"⚠️ Failed to create lock file {lock_path}: {e}")
 
     try:
         while True:
@@ -883,6 +890,15 @@ async def trade_logic_and_price_display_loop():
         print(f"❌ Error in trade logic for {current_task_token_name}: {e}")
         g_processing_token = False  # Ensure we reset the flag on error
         raise
+    finally:
+        g_processing_token = False
+        # Remove lock file when token processing finishes
+        try:
+            if os.path.exists(lock_path):
+                os.remove(lock_path)
+                print(f"🔓 Removed lock file {lock_path}")
+        except Exception as e:
+            print(f"⚠️ Failed to remove lock file {lock_path}: {e}")
 
 # --- CSV Checker and Restart Trigger ---
 async def periodic_csv_checker():

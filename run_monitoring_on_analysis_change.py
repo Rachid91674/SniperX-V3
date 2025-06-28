@@ -9,11 +9,13 @@ from watchdog.events import FileSystemEventHandler
 CSV_FILENAME = "token_risk_analysis.csv"
 TARGET_SCRIPT_FILENAME = "Monitoring.py"
 LOG_FILENAME = "monitoring_watchdog.log"
+LOCK_FILENAME = "monitoring_active.lock"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_FILE_PATH = os.path.join(SCRIPT_DIR, CSV_FILENAME)
 TARGET_SCRIPT_PATH = os.path.join(SCRIPT_DIR, TARGET_SCRIPT_FILENAME)
 LOG_FILE_PATH = os.path.join(SCRIPT_DIR, LOG_FILENAME)
+LOCK_FILE_PATH = os.path.join(SCRIPT_DIR, LOCK_FILENAME)
 PID_FILE = os.path.join(SCRIPT_DIR, "monitoring_watchdog.pid")
 
 class RiskCSVHandler(FileSystemEventHandler):
@@ -69,6 +71,16 @@ class RiskCSVHandler(FileSystemEventHandler):
         current_time = time.time()
         if current_time - self.last_launch_time < self.cooldown_seconds:
             return
+        if os.path.exists(LOCK_FILE_PATH):
+            if self.running_process and self.running_process.poll() is None:
+                print(f"Watchdog: Monitoring already active (lock file {LOCK_FILE_PATH}). Skipping restart.")
+                return
+            else:
+                try:
+                    os.remove(LOCK_FILE_PATH)
+                    print(f"Watchdog: Removed stale lock file {LOCK_FILE_PATH}.")
+                except Exception:
+                    pass
         self.last_launch_time = current_time
         if self.running_process and self.running_process.poll() is None:
             self._terminate_pid(self.running_process.pid)

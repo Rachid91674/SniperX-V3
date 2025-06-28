@@ -25,3 +25,7 @@ ensure the package is upgraded:
 ```bash
 pip install -U "python-telegram-bot>=20.0"
 ```
+
+## Monitoring Watchdog
+
+`run_monitoring_on_analysis_change.py` monitors `token_risk_analysis.csv` and normally restarts `Monitoring.py` when the file changes. The watchdog now checks for the `monitoring_active.lock` file created by `Monitoring.py`. If the lock exists and the process is still running, the watchdog skips the restart to avoid interrupting an active token analysis.

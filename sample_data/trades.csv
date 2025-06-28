@@ -1,5 +1,1 @@
 Address,Name,Price USD,Liquidity(1m),Volume(1m),1m Change,Open Chart,Snipe,Ghost Buyer,Global_Cluster_Percentage,Highest_Risk_Reason_Cluster,DexScreener_Pair_Address,DexScreener_Liquidity_USD,DexScreener_Token_Price_USD,DexScreener_Token_Name,LP_Percent_Supply,Cluster_Token_Amount_Est,Pool_Project_Token_Amount_Est,Dump_Risk_LP_vs_Cluster_Ratio,Price_Impact_Cluster_Sell_Percent,Overall_Risk_Status,Risk_Warning_Details,timestamp,token_name,mint_address,reason,buy_price,sell_price,gain_loss_pct,result
-"2025-06-28 04:25:44","brohouse","9BK1ZcG4pJDZe7izAV9b4DcfLjoVj8AgB36rzyqupump","No buy signal timeout","","0.000004151","",""
-"2025-06-28 04:28:47","nigga coin","F3Vd8ZjK2rTPYjyP3zgNjuh7DgkZVhVeiw3YexSypump","No buy signal timeout","","0.000386400","",""
-"2025-06-28 04:39:06","goodboy","4VhXSgge6V1mRGGATmCXgEw7tKbW8zTMsv4jaHKkpump","No buy signal timeout","","0.000107900","",""
-"2025-06-28 04:42:09","Unknown","9ufaBYzgX4buvn3kTo1TAvCQb3EVUrTSHNH1E5Fypump","No buy signal timeout","","0.000490600","",""

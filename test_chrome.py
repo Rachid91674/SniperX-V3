@@ -549,23 +549,38 @@ def process_single_token_threaded(token_address_with_config: tuple):
 
                 if not data_is_fresh:
                     logging.info(f"[{thread_id_str}] Data not fresh. Attempting in-page refresh (Attempt {attempt + 1}).")
+                    refresh_icon_found = False
                     refresh_icon_found_and_clicked = False
+                    
+                    # First check if refresh icon exists
                     try:
-                        # Try to find and click the refresh icon
-                        refresh_icon = WebDriverWait(thread_driver, 15).until(
-                            EC.element_to_be_clickable((By.XPATH, "//*[@data-testid='RefreshIcon']"))
+                        refresh_icon = WebDriverWait(thread_driver, 5).until(
+                            EC.presence_of_element_located((By.XPATH, "//*[@data-testid='RefreshIcon']"))
                         )
+                        refresh_icon_found = True
+                    except TimeoutException:
+                        logging.warning(f"[{thread_id_str}] Refresh icon not found on page (Attempt {attempt + 1}).")
+                        if attempt >= 1:  # If this is the 2nd or later attempt and still no refresh icon
+                            logging.error(f"[{thread_id_str}] Refresh icon not found after {attempt + 1} attempts. Skipping token.")
+                            return token_address, False
+                        continue  # Try again on next attempt
+                    except Exception as e:
+                        logging.warning(f"[{thread_id_str}] Error checking for refresh icon: {e}")
+                        continue
+                    
+                    # If we get here, refresh icon was found, now try to click it
+                    try:
                         thread_driver.execute_script("arguments[0].scrollIntoView(true);", refresh_icon)
                         time.sleep(0.5)
                         click_element_with_fallback(thread_driver, refresh_icon, timeout=5, max_attempts=3, log_prefix=f"[{thread_id_str}] Refresh")
                         logging.info(f"[{thread_id_str}] Clicked in-page refresh (Attempt {attempt + 1}).")
                         refresh_icon_found_and_clicked = True
-                    except TimeoutException:
-                        logging.warning(f"[{thread_id_str}] Refresh icon (data-testid='RefreshIcon') not found or not clickable for in-page refresh (Attempt {attempt + 1}). Continuing process as per request.")
-                        # data_is_fresh remains False, will proceed to full browser refresh if needed.
                     except Exception as e_icon_click:
-                        logging.warning(f"[{thread_id_str}] Error finding/clicking refresh icon during in-page refresh (Attempt {attempt + 1}): {e_icon_click}. Continuing.")
-                        # data_is_fresh remains False.
+                        logging.warning(f"[{thread_id_str}] Error clicking refresh icon (Attempt {attempt + 1}): {e_icon_click}")
+                        if attempt >= 1:  # If this is the 2nd or later attempt and still can't click
+                            logging.error(f"[{thread_id_str}] Failed to click refresh icon after {attempt + 1} attempts. Skipping token.")
+                            return token_address, False
+                        continue  # Try again on next attempt
 
                     if refresh_icon_found_and_clicked:
                         try:

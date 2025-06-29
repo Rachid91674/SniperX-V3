@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import subprocess
 import logging
 import signal
+import json  # Added for JSON handling
 from db_logger import log_to_db
 load_dotenv()
 
@@ -50,14 +51,9 @@ SNIPE_GRADUATED_DELTA_MINUTES_FLOAT = float(raw_snipe_age_env.split('#')[0].stri
 # Only use 1-minute window
 WINDOW_MINS = [1]
 
-raw_pl = os.getenv("PRELIM_LIQUIDITY_THRESHOLD", "5000").split('#')[0].strip()
-PRELIM_LIQUIDITY_THRESHOLD = safe_float_convert(raw_pl, 5000.0)
-raw_ppmin = os.getenv("PRELIM_MIN_PRICE_USD", "0.00001").split('#')[0].strip()
-PRELIM_MIN_PRICE_USD = safe_float_convert(raw_ppmin, 0.00001)
-raw_ppmax = os.getenv("PRELIM_MAX_PRICE_USD", "0.0004").split('#')[0].strip()
-PRELIM_MAX_PRICE_USD = safe_float_convert(raw_ppmax, 0.0004)
-raw_age = os.getenv("PRELIM_AGE_DELTA_MINUTES", "120").split('#')[0].strip()
-PRELIM_AGE_DELTA_MINUTES = safe_float_convert(raw_age, 120.0)
+# New preliminary filter thresholds
+MIN_24H_VOLUME = 600000  # 600K minimum 24h volume
+MIN_TOKEN_PRICE = 0.00078  # Minimum token price
 raw_wp = os.getenv("WHALE_PRICE_UP_PCT", "0.0").split('#')[0].strip()
 WHALE_PRICE_UP_PCT = safe_float_convert(raw_wp, 0.0)
 raw_wlq = os.getenv("WHALE_LIQUIDITY_UP_PCT", "0.0").split('#')[0].strip()
@@ -100,17 +96,52 @@ def get_trending_tokens():
             else:
                 tokens = []
             print(f"[INFO] Retrieved {len(tokens)} tokens with key {idx}.")
+            
             parsed = []
+            if tokens:
+                first_token = tokens[0]
+                print("\n[DEBUG] First token structure:")
+                print(json.dumps(first_token, indent=2))
+                print("\n[DEBUG] Available token keys:", list(first_token.keys()))
+                
+                # Log some key values for debugging
+                print("\n[DEBUG] Sample token values:")
+                for key in ['token_address', 'address', 'name', 'symbol', 
+                          'price_usd', 'priceUsd', 'price',
+                          'volume_24h', 'volume24h', 'volume']:
+                    if key in first_token:
+                        print(f"  {key}: {first_token[key]}")
+            
             for t in tokens:
-                if not isinstance(t, dict):
-                    continue
-                parsed.append({
-                    'tokenAddress': t.get('token_address'),
-                    'name': t.get('name'),
-                    'symbol': t.get('symbol'),
-                    'priceUsd': t.get('price_usd'),
-                    'volume_24h': t.get('volume_24h')
-                })
+                # Get token address - prioritize tokenAddress field
+                token_address = t.get('tokenAddress')
+                
+                # Get price - prioritize usdPrice field
+                price_usd = t.get('usdPrice')
+                
+                # Get 24h volume - look in totalVolume.24h
+                volume_24h = None
+                if 'totalVolume' in t and isinstance(t['totalVolume'], dict):
+                    volume_24h = t['totalVolume'].get('24h')
+                
+                token_data = {
+                    'tokenAddress': token_address,
+                    'name': t.get('name', '').strip(),
+                    'symbol': t.get('symbol', '').strip(),
+                    'priceUsd': float(price_usd) if price_usd is not None else 0,
+                    'volume_24h': float(volume_24h) if volume_24h is not None else 0,
+                    'rawData': t  # Keep original data for debugging
+                }
+                
+                # Debug log the first token's parsed data
+                if not parsed:
+                    print("\n[DEBUG] First token parsed data:")
+                    print(json.dumps(token_data, indent=2))
+                    print("\n[DEBUG] Raw volume data:", t.get('totalVolume'))
+                    print("[DEBUG] Extracted 24h volume:", volume_24h)
+                    print("[DEBUG] Extracted price:", price_usd)
+                
+                parsed.append(token_data)
             return parsed
         except requests.exceptions.HTTPError as err:
             status = getattr(err.response, 'status_code', None)
@@ -123,39 +154,44 @@ def get_trending_tokens():
     return []
 
 def filter_preliminary(tokens):
-    now = datetime.datetime.now(datetime.timezone.utc)
+    """Filter tokens based on 24h volume > 600K and price > 0.00078"""
     filtered = []
-    for token in tokens:
+    total_tokens = len(tokens) if tokens else 0
+    logging.info(f"Starting preliminary filtering of {total_tokens} tokens...")
+    
+    for i, token in enumerate(tokens, 1):
         if not isinstance(token, dict):
+            logging.debug(f"Token {i}: Not a dictionary, skipping")
             continue
-        raw_liq_data = token.get("liquidity")
-        liquidity = 0.0
-        if raw_liq_data is not None:
-            raw_liq_val = raw_liq_data.get("usd") if isinstance(raw_liq_data, dict) else raw_liq_data
-            try:
-                liquidity = float(raw_liq_val if raw_liq_val is not None else 0)
-            except (ValueError, TypeError):
-                liquidity = 0.0
+            
+        token_address = token.get('tokenAddress', 'unknown')
+        
         try:
-            price_usd = float(token.get("priceUsd", 0))
-        except (ValueError, TypeError):
-            price_usd = 0.0
-        grad_str = token.get("graduatedAt")
-        minutes_diff = 0.0
-        if grad_str:
-            try:
-                grad = dateparser.parse(grad_str)
-                if isinstance(grad, datetime.datetime):
-                    grad = grad.replace(tzinfo=datetime.timezone.utc) if grad.tzinfo is None else grad.astimezone(datetime.timezone.utc)
-                    minutes_diff = (now - grad).total_seconds() / 60
-            except Exception as e:
-                logging.debug(f"GraduatedAt parse error for {token.get('tokenAddress')}: {e}")
-                minutes_diff = float('inf')
-        if ((raw_liq_data is None or liquidity >= PRELIM_LIQUIDITY_THRESHOLD) and
-            PRELIM_MIN_PRICE_USD <= price_usd <= PRELIM_MAX_PRICE_USD and
-            (not grad_str or minutes_diff <= PRELIM_AGE_DELTA_MINUTES)):
-            filtered.append(token)
-    logging.info(f"{len(filtered)} tokens passed preliminary filters.")
+            # Get volume and price from the parsed data
+            volume_24h = float(token.get('volume_24h', 0))
+            price_usd = float(token.get('priceUsd', 0))
+            
+            logging.debug(f"Token {i} ({token_address}): Volume=${volume_24h:,.2f}, Price=${price_usd:.8f}")
+            
+            volume_ok = volume_24h >= MIN_24H_VOLUME
+            price_ok = price_usd >= MIN_TOKEN_PRICE
+            
+            if not volume_ok:
+                logging.debug(f"Token {i} ({token_address}): Volume too low (${volume_24h:,.2f} < ${MIN_24H_VOLUME:,.2f})")
+            if not price_ok:
+                logging.debug(f"Token {i} ({token_address}): Price too low (${price_usd:.8f} < ${MIN_TOKEN_PRICE:.8f})")
+                
+            if volume_ok and price_ok:
+                filtered.append(token)
+                logging.debug(f"Token {i} ({token_address}): PASSED filters")
+                
+        except (ValueError, TypeError) as e:
+            logging.debug(f"Token {i} ({token_address}): Error processing token data - {str(e)}")
+            if 'rawData' in token:
+                logging.debug(f"Token {i} raw data: {json.dumps(token['rawData'], indent=2)}")
+            continue
+    
+    logging.info(f"{len(filtered)}/{total_tokens} tokens passed preliminary filters (24h vol > ${MIN_24H_VOLUME:,.0f}, price > {MIN_TOKEN_PRICE} USD).")
     return filtered
 
 async def fetch_token_data(session, token_address):

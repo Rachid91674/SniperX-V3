@@ -1,3 +1,1 @@
 Address,Name,Price USD,Liquidity(1m),Volume(1m),1m Change,Open Chart,Snipe,Ghost Buyer,Global_Cluster_Percentage,Highest_Risk_Reason_Cluster,DexScreener_Pair_Address,DexScreener_Liquidity_USD,DexScreener_Token_Price_USD,DexScreener_Token_Name,LP_Percent_Supply,Cluster_Token_Amount_Est,Pool_Project_Token_Amount_Est,Dump_Risk_LP_vs_Cluster_Ratio,Price_Impact_Cluster_Sell_Percent,Overall_Risk_Status,Risk_Warning_Details,timestamp,token_name,mint_address,reason,buy_price,sell_price,gain_loss_pct,result
-"2025-06-29 14:30:55","Project C-43","BP5LQ2GUPdXfwD5dFKidgy67cRiREf9NMjxX7VsVpump","No buy signal timeout","","0.000172400","",""
-"2025-06-29 14:36:33","NiggaCoin","2QfV3KR41STWcvcTeSPqbvgAsn5HX6ijoEQnbEN7pump","Stop loss","0.000085440","0.000037510","-56.10%","LOSS"

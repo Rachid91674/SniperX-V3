@@ -93,7 +93,12 @@ def get_trending_tokens():
             resp = requests.get(TRENDING_API_URL, headers=headers, timeout=20)
             resp.raise_for_status()
             data = resp.json()
-            tokens = data.get('tokens') or []
+            if isinstance(data, list):
+                tokens = data
+            elif isinstance(data, dict):
+                tokens = data.get('tokens') or data.get('result') or []
+            else:
+                tokens = []
             print(f"[INFO] Retrieved {len(tokens)} tokens with key {idx}.")
             parsed = []
             for t in tokens:

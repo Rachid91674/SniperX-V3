@@ -37,8 +37,12 @@ OPENED_TOKENS_FILE = 'opened_tokens.txt'
 EXTRACTED_DATA_DIR = 'bubblemaps_token_data'
 CLUSTER_SUMMARY_FILE = 'cluster_summaries.csv'
 
-# Exact CSS class string that Bubblemaps uses for non-clustered addresses.
-INDIVIDUAL_ADDRESS_MUIBOX_CLASS = 'css-141d73e'
+# XPATH used to detect the presence of a cluster icon inside an address row.
+# If an element matching this XPATH exists within the MuiBox container then the
+# row is treated as part of a cluster.  The exact CSS class used by Bubblemaps
+# changes frequently, so relying on stable DOM features like icons is more
+# reliable than hard coded class names.
+CLUSTER_ICON_XPATH = ".//svg[contains(@data-testid, 'Cluster') or contains(@aria-label, 'cluster') or contains(@class, 'cluster')]"
 RANK1_AS_CLUSTER_KEY = "Rank1_Treated_As_Cluster" # Special key for Rank #1 if it's individual but treated as cluster
 
 CHECK_INTERVAL = 15
@@ -243,12 +247,27 @@ def extract_initial_address_list_data(driver) -> list:
                 except NoSuchElementException:
                     mui_box = addr_el.find_element(By.XPATH, "./preceding-sibling::div[contains(@class, 'MuiBox-root') and not(contains(@class, 'MuiCircularProgress-root'))][1]")
                 mui_class = mui_box.get_attribute("class") if mui_box else "MuiBox-Not-Found"
+                has_cluster_icon = False
+                if mui_box:
+                    try:
+                        mui_box.find_element(By.XPATH, CLUSTER_ICON_XPATH)
+                        has_cluster_icon = True
+                    except NoSuchElementException:
+                        has_cluster_icon = False
                 rank_txt, addr_txt = rank_el.text.strip().replace("#",""), addr_el.text.strip()
-                if not rank_txt.isdigit(): continue
+                if not rank_txt.isdigit():
+                    continue
                 rank_int = int(rank_txt)
                 if 1 <= rank_int <= TARGET_MAX_RANK_EXTRACTION and rank_int not in address_data_map:
-                    perc_txt = perc_el.text.strip().replace("%","")
-                    address_data_map[rank_int] = {'Rank':rank_txt,'Address':addr_txt,'Individual_Percentage':perc_txt,'MuiBox_Class_String':mui_class,'Cluster_Supply_Percentage':'N/A'}
+                    perc_txt = perc_el.text.strip().replace("%", "")
+                    address_data_map[rank_int] = {
+                        'Rank': rank_txt,
+                        'Address': addr_txt,
+                        'Individual_Percentage': perc_txt,
+                        'MuiBox_Class_String': mui_class,
+                        'Is_Individual_Wallet_Visual': not has_cluster_icon,
+                        'Cluster_Supply_Percentage': 'N/A'
+                    }
                 elif rank_int > TARGET_MAX_RANK_EXTRACTION and address_data_map: break
             except (StaleElementReferenceException, NoSuchElementException): logging.debug(f"[{threading.get_ident()}] Stale/missing sub-element in item."); continue
             except Exception as e: logging.error(f"[{threading.get_ident()}] Error extracting from item: {e}")
@@ -288,11 +307,10 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
         is_rank_one = (rank_to_find_str == "1")
 
         # Determine if the current list entry visually represents an individual wallet.
-        # Any MuiBox class string that differs from the exact
-        # "MuiBox-root css-141d73e" should be treated as a cluster.
-        normalized_class = " ".join(current_muibox_class_string.split())
-        individual_class = f"MuiBox-root {INDIVIDUAL_ADDRESS_MUIBOX_CLASS}"
-        is_individual_wallet_visual = normalized_class == individual_class
+        # Presence of a cluster icon indicates a cluster; otherwise it is treated
+        # as an individual wallet.  This information is captured during the
+        # initial extraction stage and stored under 'Is_Individual_Wallet_Visual'.
+        is_individual_wallet_visual = item_data.get('Is_Individual_Wallet_Visual', False)
 
         if is_rank_one and is_individual_wallet_visual:
             logging.info(f"[{thread_id_str}] Rank #1 ({address_to_find}) is visually individual. Treating its own holdings as its cluster data.")
@@ -409,9 +427,12 @@ def save_address_data_txt(token_address, augmented_address_data, directory):
     filepath = os.path.join(directory, f"bubblemaps_data_{token_address}.txt")
     try:
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write("Rank\tAddress\tIndividual_Percentage\tMuiBox_Class\tCluster_Supply_Percentage\n")
+            f.write("Rank\tAddress\tIndividual_Percentage\tIs_Individual_Wallet\tMuiBox_Class\tCluster_Supply_Percentage\n")
             for entry in augmented_address_data:
-                f.write(f"{entry.get('Rank','N/A')}\t{entry.get('Address','N/A')}\t{entry.get('Individual_Percentage','N/A')}\t{entry.get('MuiBox_Class_String','N/A')}\t{entry.get('Cluster_Supply_Percentage','N/A')}\n")
+                f.write(
+                    f"{entry.get('Rank','N/A')}\t{entry.get('Address','N/A')}\t{entry.get('Individual_Percentage','N/A')}\t"
+                    f"{entry.get('Is_Individual_Wallet_Visual','N/A')}\t{entry.get('MuiBox_Class_String','N/A')}\t{entry.get('Cluster_Supply_Percentage','N/A')}\n"
+                )
     except IOError as e: logging.error(f"IOError saving to {filepath}: {e}")
 
 def cleanup_token_data(token_address: str):

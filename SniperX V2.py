@@ -16,7 +16,8 @@ import subprocess
 import logging
 import signal
 from db_logger import log_to_db
-load_dotenv()
+# Override any existing environment variables with values from .env
+load_dotenv(override=True)
 
 def safe_float_convert(value, default):
     if not value:
@@ -33,11 +34,15 @@ TEST_MODE = len(sys.argv) > 1 and sys.argv[1] == "--test"
 MORALIS_API_KEYS = [os.getenv(f"MORALIS_API_KEY_{i}", "").split('#')[0].strip() for i in range(1,6)]
 MORALIS_API_KEYS = [k for k in MORALIS_API_KEYS if k]
 if not MORALIS_API_KEYS:
-    print("[ERROR] No Moralis API keys configured in .env. Exiting.")
-    sys.exit(1)
+    single_key = os.getenv("MORALIS_API_KEY")
+    if single_key:
+        MORALIS_API_KEYS = [single_key]
+    else:
+        print("[ERROR] No Moralis API keys configured in .env. Exiting.")
+        sys.exit(1)
 EXCHANGE_NAME = os.getenv("EXCHANGE_NAME", "pumpfun")
 FETCH_LIMIT = 100
-MORALIS_API_URL = f"https://solana-gateway.moralis.io/token/mainnet/exchange/{EXCHANGE_NAME}/graduated?limit={FETCH_LIMIT}"
+TRENDING_API_URL = "https://deep-index.moralis.io/api/v2.2/tokens/trending?chain=solana"
 DEFAULT_MAX_WORKERS = 1 # <<<< SET TO 1 AS PER USER REQUEST >>>>
 PROCESSED_TOKENS_FILE = "processed_tokens.txt"
 DEXSCREENER_CHAIN_ID = "solana"
@@ -80,18 +85,34 @@ GHOST_PRICE_REL_MULTIPLIER = safe_float_convert(raw_gpr, 2.0)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
-def get_graduated_tokens():
-    print(f"[INFO] Fetching graduated tokens from '{EXCHANGE_NAME}'...")
+def get_trending_tokens():
+    print("[INFO] Fetching trending tokens from Moralis...")
     for idx, key in enumerate(MORALIS_API_KEYS, start=1):
         print(f"[INFO] Trying Moralis API key {idx}/{len(MORALIS_API_KEYS)}")
-        headers = {"Accept": "application/json", "Authorization": f"Bearer {key}"}
+        headers = {"X-API-Key": key, "accept": "application/json"}
         try:
-            resp = requests.get(MORALIS_API_URL, headers=headers, timeout=20)
+            resp = requests.get(TRENDING_API_URL, headers=headers, timeout=20)
             resp.raise_for_status()
             data = resp.json()
-            tokens = data.get('result') or []
+            if isinstance(data, list):
+                tokens = data
+            elif isinstance(data, dict):
+                tokens = data.get('tokens') or data.get('result') or []
+            else:
+                tokens = []
             print(f"[INFO] Retrieved {len(tokens)} tokens with key {idx}.")
-            return [t for t in tokens if isinstance(t, dict)] 
+            parsed = []
+            for t in tokens:
+                if not isinstance(t, dict):
+                    continue
+                parsed.append({
+                    'tokenAddress': t.get('token_address'),
+                    'name': t.get('name'),
+                    'symbol': t.get('symbol'),
+                    'priceUsd': t.get('price_usd'),
+                    'volume_24h': t.get('volume_24h')
+                })
+            return parsed
         except requests.exceptions.HTTPError as err:
             status = getattr(err.response, 'status_code', None)
             print(f"[WARN] Key {idx} HTTP {status} error: {err}. Trying next key.")
@@ -106,25 +127,34 @@ def filter_preliminary(tokens):
     now = datetime.datetime.now(datetime.timezone.utc)
     filtered = []
     for token in tokens:
-        if not isinstance(token, dict): continue
-        raw_liq_data = token.get("liquidity", {})
-        raw_liq_val = raw_liq_data.get("usd") if isinstance(raw_liq_data, dict) else token.get("liquidity")
-        try: liquidity = float(raw_liq_val if raw_liq_val is not None else 0)
-        except (ValueError, TypeError): liquidity = 0.0
-        try: price_usd = float(token.get("priceUsd", 0))
-        except (ValueError, TypeError): price_usd = 0.0
+        if not isinstance(token, dict):
+            continue
+        raw_liq_data = token.get("liquidity")
+        liquidity = 0.0
+        if raw_liq_data is not None:
+            raw_liq_val = raw_liq_data.get("usd") if isinstance(raw_liq_data, dict) else raw_liq_data
+            try:
+                liquidity = float(raw_liq_val if raw_liq_val is not None else 0)
+            except (ValueError, TypeError):
+                liquidity = 0.0
+        try:
+            price_usd = float(token.get("priceUsd", 0))
+        except (ValueError, TypeError):
+            price_usd = 0.0
         grad_str = token.get("graduatedAt")
-        minutes_diff = float('inf')
+        minutes_diff = 0.0
         if grad_str:
             try:
                 grad = dateparser.parse(grad_str)
                 if isinstance(grad, datetime.datetime):
                     grad = grad.replace(tzinfo=datetime.timezone.utc) if grad.tzinfo is None else grad.astimezone(datetime.timezone.utc)
                     minutes_diff = (now - grad).total_seconds() / 60
-            except Exception as e: logging.debug(f"GraduatedAt parse error for {token.get('tokenAddress')}: {e}")
-        if (liquidity >= PRELIM_LIQUIDITY_THRESHOLD and
+            except Exception as e:
+                logging.debug(f"GraduatedAt parse error for {token.get('tokenAddress')}: {e}")
+                minutes_diff = float('inf')
+        if ((raw_liq_data is None or liquidity >= PRELIM_LIQUIDITY_THRESHOLD) and
             PRELIM_MIN_PRICE_USD <= price_usd <= PRELIM_MAX_PRICE_USD and
-            minutes_diff <= PRELIM_AGE_DELTA_MINUTES):
+            (not grad_str or minutes_diff <= PRELIM_AGE_DELTA_MINUTES)):
             filtered.append(token)
     logging.info(f"{len(filtered)} tokens passed preliminary filters.")
     return filtered
@@ -282,19 +312,13 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
     for token_info in passed_whale_trap:
         try:
             grad_str = token_info.get('graduatedAt')
-            if not grad_str: 
-                continue
-                
-            grad_dt = dateparser.parse(grad_str)
-            if not isinstance(grad_dt, datetime.datetime): 
-                continue
-                
-            # Handle timezone
-            grad_dt = grad_dt.replace(tzinfo=datetime.timezone.utc) if grad_dt.tzinfo is None else grad_dt.astimezone(datetime.timezone.utc)
-            age_minutes = (now_utc - grad_dt).total_seconds() / 60
-            
-            # Skip if token is too old for snipe detection
-            if age_minutes > SNIPE_GRADUATED_DELTA_MINUTES_FLOAT: 
+            age_minutes = 0.0
+            if grad_str:
+                grad_dt = dateparser.parse(grad_str)
+                if isinstance(grad_dt, datetime.datetime):
+                    grad_dt = grad_dt.replace(tzinfo=datetime.timezone.utc) if grad_dt.tzinfo is None else grad_dt.astimezone(datetime.timezone.utc)
+                    age_minutes = (now_utc - grad_dt).total_seconds() / 60
+            if age_minutes > SNIPE_GRADUATED_DELTA_MINUTES_FLOAT:
                 continue
                 
             addr = token_info.get('tokenAddress')
@@ -635,7 +659,7 @@ def start_slave_watchdog(script_dir_path):
         return None
 
 def main_token_processing_loop(script_dir_path):
-    tokens = get_graduated_tokens()
+    tokens = get_trending_tokens()
     prelim_filtered_tokens = filter_preliminary(tokens)
     window_results_aggregator = {}
     if prelim_filtered_tokens:

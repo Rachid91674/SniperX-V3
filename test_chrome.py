@@ -210,8 +210,8 @@ def ensure_address_list_panel_open(driver):
 
 def extract_initial_address_list_data(driver) -> list:
     TARGET_MAX_RANK_EXTRACTION = 10
-    logging.debug(f"[{threading.get_ident()}] Attempting direct extraction (ranks 1-{TARGET_MAX_RANK_EXTRACTION}).")
-    address_data_map = {}
+    logging.debug(f"[{threading.get_ident()}] Attempting to collect the first {TARGET_MAX_RANK_EXTRACTION} ranks.")
+    address_data_list = []
     try:
         WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.XPATH, "//p[contains(text(),'Address List')]"))
@@ -228,9 +228,9 @@ def extract_initial_address_list_data(driver) -> list:
         if not items_in_view: logging.warning(f"[{threading.get_ident()}] No items in list after scroll to top."); return []
 
         for item_container in items_in_view:
-            if sum(1 for r_key in address_data_map if 1 <= r_key <= TARGET_MAX_RANK_EXTRACTION) >= TARGET_MAX_RANK_EXTRACTION and \
-               all(r_chk in address_data_map for r_chk in range(1, TARGET_MAX_RANK_EXTRACTION + 1)):
-                logging.debug(f"[{threading.get_ident()}] All {TARGET_MAX_RANK_EXTRACTION} target ranks collected."); break
+            if len(address_data_list) >= TARGET_MAX_RANK_EXTRACTION:
+                logging.debug(f"[{threading.get_ident()}] Collected {TARGET_MAX_RANK_EXTRACTION} items; stopping.")
+                break
             try:
                 btn = item_container.find_element(By.XPATH, ".//div[contains(@class, 'MuiListItemButton-root')]")
 
@@ -257,23 +257,20 @@ def extract_initial_address_list_data(driver) -> list:
                 rank_txt, addr_txt = rank_el.text.strip().replace("#",""), addr_el.text.strip()
                 if not rank_txt.isdigit():
                     continue
-                rank_int = int(rank_txt)
-                if 1 <= rank_int <= TARGET_MAX_RANK_EXTRACTION and rank_int not in address_data_map:
+                if len(address_data_list) < TARGET_MAX_RANK_EXTRACTION:
                     perc_txt = perc_el.text.strip().replace("%", "")
-                    address_data_map[rank_int] = {
+                    address_data_list.append({
                         'Rank': rank_txt,
                         'Address': addr_txt,
                         'Individual_Percentage': perc_txt,
                         'MuiBox_Class_String': mui_class,
                         'Is_Individual_Wallet_Visual': not has_cluster_icon,
                         'Cluster_Supply_Percentage': 'N/A'
-                    }
-                elif rank_int > TARGET_MAX_RANK_EXTRACTION and address_data_map: break
+                    })
             except (StaleElementReferenceException, NoSuchElementException): logging.debug(f"[{threading.get_ident()}] Stale/missing sub-element in item."); continue
             except Exception as e: logging.error(f"[{threading.get_ident()}] Error extracting from item: {e}")
-        final_data = [address_data_map[r] for r in sorted(address_data_map.keys()) if 1<=r<=TARGET_MAX_RANK_EXTRACTION]
-        logging.debug(f"[{threading.get_ident()}] Extracted {len(final_data)} for ranks 1-{TARGET_MAX_RANK_EXTRACTION}.")
-        return final_data
+        logging.debug(f"[{threading.get_ident()}] Extracted {len(address_data_list)} for the first {TARGET_MAX_RANK_EXTRACTION} ranks.")
+        return address_data_list
     except Exception as e: logging.error(f"[{threading.get_ident()}] Err in extract_initial_address_list_data: {e}", exc_info=True); return []
 
 # --- MODIFIED FUNCTION ---

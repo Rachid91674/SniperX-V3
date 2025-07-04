@@ -368,8 +368,24 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
                 driver.execute_script("arguments[0].scrollIntoView({block:'center', behavior: 'smooth'});", target_button_element)
                 time.sleep(0.7) # Wait for scroll to complete
 
-                click_element_with_fallback(driver, target_button_element, timeout=10, max_attempts=3, log_prefix=f"[{thread_id_str}] Cluster Item")
-                logging.info(f"[{thread_id_str}] Clicked on cluster item: Rank #{rank_to_find_str} ({address_to_find}).")
+                click_success = click_element_with_fallback(
+                    driver,
+                    target_button_element,
+                    timeout=10,
+                    max_attempts=3,
+                    log_prefix=f"[{thread_id_str}] Cluster Item",
+                )
+                if not click_success:
+                    logging.error(
+                        f"[{thread_id_str}] Failed to click cluster item for Rank #{rank_to_find_str} ({address_to_find}). Skipping extraction."
+                    )
+                    item_data["Cluster_Supply_Percentage"] = "Error:ClickFailed"
+                    processed_cluster_data[normalized_muibox_key] = "Error:ClickFailed"
+                    continue
+
+                logging.info(
+                    f"[{thread_id_str}] Clicked on cluster item: Rank #{rank_to_find_str} ({address_to_find})."
+                )
 
                 extracted_supply_value = 'N/A'
                 try:

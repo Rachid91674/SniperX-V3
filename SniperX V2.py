@@ -48,6 +48,8 @@ PROCESSED_TOKENS_FILE = "processed_tokens.txt"
 DEXSCREENER_CHAIN_ID = "solana"
 raw_snipe_age_env = os.getenv("SNIPE_GRADUATED_DELTA_MINUTES", "60")
 SNIPE_GRADUATED_DELTA_MINUTES_FLOAT = float(raw_snipe_age_env.split('#')[0].strip()) if raw_snipe_age_env else 60.0
+# Optional limit on how many new tokens to write each cycle
+MAX_TOKENS_PER_RUN = int(os.getenv("MAX_TOKENS_PER_RUN", "10"))
 # Only use 1-minute window
 WINDOW_MINS = [1]
 
@@ -404,8 +406,12 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
     final_results_for_csv = snipe_candidates + [t for t in ghost_buyer_candidates if t not in snipe_candidates]
     
     # Filter out tokens that were already in the file at the start
-    new_tokens = [t for t in final_results_for_csv 
+    new_tokens = [t for t in final_results_for_csv
                  if t.get('tokenAddress') and t['tokenAddress'] not in existing_tokens_at_start]
+
+    # Limit how many new tokens we append to the CSV per run
+    max_tokens = int(os.getenv("MAX_TOKENS_PER_RUN", "10"))
+    new_tokens = new_tokens[:max_tokens]
     
     if not new_tokens:
         logging.info(f"No new tokens to add to {abs_csv_filepath}")

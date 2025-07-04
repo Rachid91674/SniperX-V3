@@ -274,13 +274,17 @@ def run_full_risk_analysis():
         cluster_info = cluster_data_map.get(token_address)
         cluster_percent_supply_val = 0.0
         if cluster_info:
-            output_row["Global_Cluster_Percentage"] = cluster_info.get("Global_Cluster_Percentage", "0.0")
+            raw_val = cluster_info.get("Global_Cluster_Percentage", "0").rstrip('%')
+            output_row["Global_Cluster_Percentage"] = raw_val
             output_row["Highest_Risk_Reason_Cluster"] = cluster_info.get("Highest_Risk_Reason", "N/A")
             try:
-                cluster_percent_supply_val = float(output_row["Global_Cluster_Percentage"])
+                cluster_percent_supply_val = float(raw_val or 0)
             except ValueError:
-                logging.warning(f"Could not parse Global_Cluster_Percentage '{output_row['Global_Cluster_Percentage']}' for {token_address}. Defaulting to 0.0 for calculations.")
+                logging.warning(
+                    f"Could not parse Global_Cluster_Percentage '{cluster_info.get('Global_Cluster_Percentage')}' for {token_address}. Defaulting to 0.0 for calculations."
+                )
                 cluster_percent_supply_val = 0.0
+                output_row["Global_Cluster_Percentage"] = "0"
         else:
             logging.info(f"No cluster summary found for {token_address}.")
             output_row["Highest_Risk_Reason_Cluster"] = "Cluster data not found"

@@ -154,38 +154,41 @@ GHOST_VOLUME_MIN_PCT_5M = safe_float_convert(raw_gv5, 0.5)
 raw_gpr = os.getenv("GHOST_PRICE_REL_MULTIPLIER", "2").split('#')[0].strip()
 GHOST_PRICE_REL_MULTIPLIER = safe_float_convert(raw_gpr, 2.0)
 
-def parse_token_data(tokens):
-    """Parse token data from the API response."""
-    parsed = []
-    for t in tokens:
-        if not isinstance(t, dict):
-            continue
-            
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+
+def get_trending_tokens():
+    print("[INFO] Fetching trending tokens from Moralis...")
+    for idx, key in enumerate(MORALIS_API_KEYS, start=1):
+        print(f"[INFO] Trying Moralis API key {idx}/{len(MORALIS_API_KEYS)}")
+        headers = {"X-API-Key": key, "accept": "application/json"}
         try:
-            # Extract volume and price data
-            volume_24h = t.get('totalVolume', {}).get('h24')
-            price_usd = t.get('priceUsd')
-            
-            token_data = {
-                'tokenAddress': t.get('tokenAddress', '').lower().strip(),
-                'name': t.get('name', '').strip(),
-                'symbol': t.get('symbol', '').strip(),
-                'priceUsd': float(price_usd) if price_usd is not None else 0,
-                'volume_24h': float(volume_24h) if volume_24h is not None else 0,
-                'rawData': t  # Keep original data for debugging
-            }
-                
-            # Debug log the first token's parsed data
-            if not parsed:
-                logger.info(f"First parsed token data: {token_data}")
-            
-            parsed.append(token_data)
-            
-        except (ValueError, AttributeError, TypeError) as e:
-            logger.error(f"Error parsing token data: {e}", exc_info=True)
-            continue
-            
-    return parsed
+            resp = requests.get(TRENDING_API_URL, headers=headers, timeout=20)
+            resp.raise_for_status()
+            data = resp.json()
+            tokens = data.get('tokens') or []
+            print(f"[INFO] Retrieved {len(tokens)} tokens with key {idx}.")
+            parsed = []
+            for t in tokens:
+                if not isinstance(t, dict):
+                    continue
+                parsed.append({
+                    'tokenAddress': t.get('token_address'),
+                    'name': t.get('name'),
+                    'symbol': t.get('symbol'),
+                    'priceUsd': t.get('price_usd'),
+                    'volume_24h': t.get('volume_24h')
+                })
+            return parsed
+        except requests.exceptions.HTTPError as err:
+            status = getattr(err.response, 'status_code', None)
+            print(f"[WARN] Key {idx} HTTP {status} error: {err}. Trying next key.")
+        except requests.exceptions.RequestException as err:
+            print(f"[WARN] Request error with key {idx}: {err}. Trying next key.")
+        except ValueError:
+            print(f"[WARN] Invalid JSON with key {idx}. Trying next key.")
+    print("[ERROR] All Moralis API keys failed; please check Moralis API quota.")
+    return []
 
 def filter_preliminary(tokens):
     """Filter tokens based on 24h volume > 600K and price > 0.00078"""
@@ -331,63 +334,11 @@ def load_processed_tokens(filepath):
     return tokens
 
 def save_processed_token(filepath, token_address):
-    with PROCESSED_TOKENS_LOCK:
-        try:
-            with open(filepath, 'a') as f:
-                f.write(f"{token_address}\n")
-        except Exception as e:
-            logging.error(f"Error saving processed token {token_address}: {e}")
-
-def save_filtered_tokens(tokens, filepath):
-    """Save filtered tokens to a CSV file with all relevant data"""
-    if not tokens:
-        logging.info("No tokens to save")
-        return
-        
     try:
-        # Ensure the directory exists
-        os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
-        
-        # Define the CSV header
-        fieldnames = [
-            'address', 'symbol', 'name', 'price_usd', 'price_24h_change',
-            'volume_24h', 'liquidity', 'market_cap', 'fdv', 'holders',
-            'txns_24h', 'created_at', 'risk_score', 'last_updated'
-        ]
-        
-        # Check if file exists to determine if we need to write headers
-        file_exists = os.path.isfile(filepath)
-        
-        with open(filepath, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            
-            # Write header only if file is being created
-            if not file_exists:
-                writer.writeheader()
-            
-            # Write token data
-            for token in tokens:
-                writer.writerow({
-                    'address': token.get('address', ''),
-                    'symbol': token.get('symbol', ''),
-                    'name': token.get('name', ''),
-                    'price_usd': token.get('price_usd', 0),
-                    'price_24h_change': token.get('price_24h_change', 0),
-                    'volume_24h': token.get('volume_24h', 0),
-                    'liquidity': token.get('liquidity', 0),
-                    'market_cap': token.get('market_cap', 0),
-                    'fdv': token.get('fdv', 0),
-                    'holders': token.get('holders', 0),
-                    'txns_24h': token.get('txns_24h', 0),
-                    'created_at': token.get('created_at', ''),
-                    'risk_score': token.get('risk_score', 0),
-                    'last_updated': datetime.datetime.utcnow().isoformat()
-                })
-                
-        logging.info(f"Saved {len(tokens)} filtered tokens to {filepath}")
-        
+        with open(filepath, 'a', encoding='utf-8') as f:
+            f.write(token_address + '\n')
     except Exception as e:
-        logging.error(f"Error saving filtered tokens to {filepath}: {e}")
+        logging.error(f"Error writing processed token {token_address} to {filepath}: {e}")
 
 def process_window(win_minutes, prelim_tokens, script_dir_path):
     sleep_seconds = win_minutes * 60

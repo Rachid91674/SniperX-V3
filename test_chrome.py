@@ -16,6 +16,8 @@ import concurrent.futures
 import threading
 import random
 import hashlib
+import datetime
+import csv
 from collections import OrderedDict
 from db_logger import log_to_db
 
@@ -367,6 +369,8 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
     augmented_data = initial_data_list.copy()
 
     for idx, item in enumerate(augmented_data):
+        # Create a unique key for this cluster
+        cluster_key = f"rank_{item.get('Rank', 'unknown')}_{idx}"
         if not isinstance(item, dict) or 'Rank' not in item or 'Address' not in item:
             continue
 
@@ -380,191 +384,224 @@ def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> t
             max_scroll_attempts = 5
             found = False
 
-            for scroll_attempt in range(max_scroll_attempts):
+            def check_refresh_status(driver) -> bool:
+                """Check if the page shows 'a few seconds' refresh status.
+                Returns True if status is good, False if refresh button is missing."""
                 try:
-                    # Find all list items
-                    list_items = driver.find_elements(
-                        By.XPATH, 
-                        "//div[contains(@class, 'MuiListItemButton-root') and .//span[contains(text(), '#')]]"
+                    # Wait for refresh status element to be present
+                    refresh_status = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'Refreshed a few seconds ago') or contains(text(),'Refreshing')]"))
                     )
-                    logging.info(f"[{thread_id_str}] Found {len(list_items)} list items on attempt {scroll_attempt + 1}")
-
-                    for li in list_items:
-                        try:
-                            item_rank = li.find_element(
-                                By.XPATH, 
-                                ".//span[starts-with(normalize-space(), '#')]"
-                            ).text.strip('#').strip()
-                            item_address = li.find_element(
-                                By.XPATH, 
-                                ".//p[contains(@class, 'MuiTypography-root')]"
-                            ).text.strip()
-                            
-                            if item_rank == rank and item_address == address:
-                                list_item = li
-                                found = True
-                                logging.info(f"[{thread_id_str}] Found matching item for rank {rank}")
-                                break
-                        except Exception as e:
-                            logging.debug(f"[{thread_id_str}] Error processing list item: {str(e)}")
-                            continue
-                    
-                    if found:
-                        break
-                        
-                    # If not found, scroll down
-                    driver.execute_script("arguments[0].scrollTop += 300", scroller)
-                    time.sleep(0.8)  # Increased wait time for scroll
-                    
-                except Exception as e:
-                    logging.warning(f"[{thread_id_str}] Error during scroll attempt {scroll_attempt + 1}: {str(e)}")
-                    time.sleep(1)
-
-            if not list_item:
-                logging.warning(f"[{thread_id_str}] Could not find list item for rank {rank} after {max_scroll_attempts} attempts")
-                continue
-
-            # Check the type of list item
-            try:
-                # Handle DEX supply entries
-                is_dex, dex_address = is_dex_supply(list_item)
-                if is_dex:
-                    logging.info(f"[{thread_id_str}] Rank {rank} is a DEX supply entry")
-                    item['Address_Type'] = 'DEX_SUPPLY'
-                    item['DEX_Address'] = dex_address
-                    # Try to get the percentage if available
-                    try:
-                        percent_el = list_item.find_element(By.XPATH, ".//span[contains(@class, 'MuiTypography-body2')]")
-                        item['DEX_Percentage'] = percent_el.text
-                    except:
-                        item['DEX_Percentage'] = 'N/A'
-                    continue
-                
-                # Handle individual clusters
-                if is_individual_cluster(list_item):
-                    logging.info(f"[{thread_id_str}] Rank {rank} is an individual cluster")
-                    item['Address_Type'] = 'INDIVIDUAL_CLUSTER'
-                    # Try to get address and percentage
-                    try:
-                        address_el = list_item.find_element(By.XPATH, ".//p[contains(@class, 'MuiTypography-body1')]")
-                        item['Cluster_Address'] = address_el.text
-                        
-                        percent_el = list_item.find_element(By.XPATH, ".//span[contains(@class, 'MuiTypography-body2')]")
-                        item['Cluster_Percentage'] = percent_el.text
-                        
-                        # Also log the rank
-                        rank_el = list_item.find_element(By.XPATH, ".//span[contains(@class, 'MuiTypography-body2') and contains(@class, 'MuiListItemText-primary')]")
-                        item['Cluster_Rank'] = rank_el.text.strip('# ')
-                    except Exception as e:
-                        logging.error(f"[{thread_id_str}] Error getting individual cluster data: {str(e)}")
-                        item['Cluster_Error'] = str(e)
-                    continue
-                
-                # If we get here, it should be a linked cluster
-                logging.info(f"[{thread_id_str}] Rank {rank} appears to be a linked cluster, processing...")
-                item['Address_Type'] = 'LINKED_CLUSTER'
-                
-                # Try to find the cluster icon using multiple strategies
-                cluster_icon = None
-                icon_xpaths = [
-                    ".//*[local-name()='svg' and .//*[contains(@d, 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z')]]",
-                    ".//*[contains(@class, 'MuiSvgIcon-root')]",
-                    ".//*[contains(@class, 'cluster-icon')]"
-                ]
-                
-                for xpath in icon_xpaths:
-                    try:
-                        cluster_icon = list_item.find_element(By.XPATH, xpath)
-                        if cluster_icon:
-                            highlight_element(cluster_icon, "green")
-                            logging.info(f"[{thread_id_str}] Found cluster icon using XPath: {xpath}")
-                            break
-                    except:
-                        continue
-                
-                if not cluster_icon:
-                    logging.info(f"[{thread_id_str}] No cluster icon found for rank {rank}, but treating as linked cluster")
-                    
-            except Exception as e:
-                logging.error(f"[{thread_id_str}] Error determining list item type: {str(e)}")
-                item['Cluster_Supply_Percentage'] = 'ERROR'
-                continue
-
-            # Click the list item to open cluster details
-            try:
-                # Scroll to the item
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'}});", list_item)
-                time.sleep(0.8)
-                
-                # Highlight before clicking
-                highlight_element(list_item, "blue", 3)
-                
-                # Try clicking with JavaScript first
-                try:
-                    driver.execute_script("arguments[0].click();", list_item)
-                    logging.info(f"[{thread_id_str}] Clicked on cluster using JavaScript for rank {rank}")
-                except:
-                    # Fall back to regular click
-                    list_item.click()
-                    logging.info(f"[{thread_id_str}] Clicked on cluster using Selenium for rank {rank}")
-                
-                # Wait for cluster details to appear
-                try:
-                    supply_element = WebDriverWait(driver, 10).until(
-                        EC.visibility_of_element_located((By.XPATH, "//*[contains(text(), 'Cluster Supply:')]"))
-                    )
-                    highlight_element(supply_element, "green")
-                    
-                    supply_text = supply_element.text
-                    supply_match = re.search(r'Cluster Supply:\s*([\d.]+)%', supply_text)
-                    
-                    if supply_match:
-                        supply_percent = supply_match.group(1)
-                        item['Cluster_Supply_Percentage'] = supply_percent
-                        logging.info(f"[{thread_id_str}] Extracted cluster supply: {supply_percent}%")
-                    else:
-                        item['Cluster_Supply_Percentage'] = 'N/A'
-                        logging.warning(f"[{thread_id_str}] Could not parse cluster supply from: {supply_text}")
-
+                    return True
                 except TimeoutException:
-                    logging.warning(f"[{thread_id_str}] Timed out waiting for cluster details for rank {rank}")
-                    item['Cluster_Supply_Percentage'] = 'N/A'
-                except Exception as e:
-                    logging.error(f"[{thread_id_str}] Error extracting cluster supply: {str(e)}")
-                    item['Cluster_Supply_Percentage'] = 'ERROR'
-
-                # Close the cluster details
-                try:
-                    close_btn = WebDriverWait(driver, 3).until(
-                        EC.element_to_be_clickable((By.XPATH, "//button[contains(@aria-label, 'close')]"))
-                    )
-                    highlight_element(close_btn, "red")
-                    close_btn.click()
-                    logging.info(f"[{thread_id_str}] Closed cluster details")
-                except:
+                    # Check if refresh button exists
                     try:
-                        # Try clicking outside if no close button
-                        body = driver.find_element(By.TAG_NAME, 'body')
-                        body.click()
-                        logging.info(f"[{thread_id_str}] Clicked outside to close cluster details")
-                    except:
-                        logging.warning(f"[{thread_id_str}] Could not close cluster details")
+                        refresh_btn = driver.find_element(By.XPATH, "//button[contains(., 'Refresh')]")
+                        return False
+                    except NoSuchElementException:
+                        return False
+                    except Exception as e:
+                        logging.error(f"Error in check_refresh_status: {e}")
+                        return False
+
+            # Check if this is a DEX supply entry
+            if is_dex_supply(list_item):
+                try:
+                    percent_el = list_item.find_element(By.XPATH, ".//span[contains(@class, 'MuiTypography-body2')]")
+                    dex_percent = percent_el.text
+                    dex_address = address  # Assuming the address is the DEX address
+                    item['DEX_Percentage'] = dex_percent
+                    
+                    # Add to processed_cluster_data
+                    processed_cluster_data[cluster_key] = {
+                        'Address_Type': 'DEX_SUPPLY',
+                        'DEX_Address': dex_address,
+                        'DEX_Percentage': dex_percent,
+                        'Rank': rank,
+                        'Address': address
+                    }
+                except Exception as e:
+                    logging.error(f"[{thread_id_str}] Error processing DEX supply: {str(e)}")
+                    item['DEX_Percentage'] = 'N/A'
+                continue
+            
+            # Handle individual clusters
+            if is_individual_cluster(list_item):
+                logging.info(f"[{thread_id_str}] Rank {rank} is an individual cluster")
+                item['Address_Type'] = 'INDIVIDUAL_CLUSTER'
                 
+                # Try to get address and percentage
+                try:
+                    address_el = list_item.find_element(
+                        By.XPATH, ".//p[contains(@class, 'MuiTypography-body1')]"
+                    )
+                    cluster_address = address_el.text
+                    item['Cluster_Address'] = cluster_address
+                    
+                    percent_el = list_item.find_element(
+                        By.XPATH, ".//span[contains(@class, 'MuiTypography-body2')]"
+                    )
+                    cluster_percent = percent_el.text
+                    item['Cluster_Percentage'] = cluster_percent
+                    
+                    # Also log the rank
+                    rank_el = list_item.find_element(
+                        By.XPATH, ".//span[contains(@class, 'MuiTypography-body2') and contains(@class, 'MuiListItemText-primary')]"
+                    )
+                    cluster_rank = rank_el.text.strip('# ')
+                    item['Cluster_Rank'] = cluster_rank
+                    
+                    # Add to processed_cluster_data
+                    processed_cluster_data[cluster_key] = {
+                        'Address_Type': 'INDIVIDUAL_CLUSTER',
+                        'Cluster_Address': cluster_address,
+                        'Cluster_Percentage': cluster_percent,
+                        'Cluster_Rank': cluster_rank,
+                        'Rank': rank,
+                        'Address': address,
+                        'Is_Cluster': True
+                    }
+                except Exception as e:
+                    error_msg = str(e)
+                    logging.error(f"[{thread_id_str}] Error processing individual cluster: {error_msg}")
+                    item['Address_Type'] = 'ERROR'
+                    item['Error'] = error_msg
+                    processed_cluster_data[cluster_key] = {
+                        'Address_Type': 'ERROR',
+                        'Error': error_msg,
+                        'Rank': rank,
+                        'Address': address
+                    }
+                # Move the continue after the individual cluster processing
+                continue
+            
+            # If we get here, it should be a linked cluster
+            logging.info(f"[{thread_id_str}] Rank {rank} appears to be a linked cluster, processing...")
+            item['Address_Type'] = 'LINKED_CLUSTER'
+            
+            # Initialize cluster data
+            cluster_data = {
+                'Address_Type': 'LINKED_CLUSTER',
+                'Rank': rank,
+                'Address': address,
+                'Cluster_Supply_Percentage': 'N/A',
+                'Cluster_Error': 'No data extracted yet'
+            }
+            
+            # Try to find the cluster icon using multiple strategies
+            cluster_icon = None
+            icon_xpaths = [
+                ".//*[local-name()='svg' and .//*[contains(@d, 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z')]]",
+                ".//*[contains(@class, 'MuiSvgIcon-root')]",
+                ".//*[contains(@class, 'cluster-icon')]"
+            ]
+            
+            for xpath in icon_xpaths:
+                try:
+                    cluster_icon = list_item.find_element(By.XPATH, xpath)
+                    if cluster_icon:
+                        highlight_element(cluster_icon, "green")
+                        logging.info(f"[{thread_id_str}] Found cluster icon using XPath: {xpath}")
+                        break
+                except:
+                    continue
+            
+            if not cluster_icon:
+                logging.info(f"[{thread_id_str}] No cluster icon found for rank {rank}, but treating as linked cluster")
+                cluster_data['Cluster_Error'] = 'No cluster icon found'
+        
+        except Exception as e:
+            logging.error(f"[{thread_id_str}] Error determining list item type: {str(e)}")
+            item['Cluster_Supply_Percentage'] = 'ERROR'
+            continue
+
+        # Click the list item to open cluster details
+        try:
+            # Scroll to the item
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'}});", list_item)
+            time.sleep(0.8)
+            
+            # Highlight before clicking
+            highlight_element(list_item, "blue", 3)
+            
+            # Try clicking with JavaScript first
+            try:
+                driver.execute_script("arguments[0].click();", list_item)
+                logging.info(f"[{thread_id_str}] Clicked on cluster using JavaScript for rank {rank}")
+            except:
+                # Fall back to regular click
+                list_item.click()
+                logging.info(f"[{thread_id_str}] Clicked on cluster using Selenium for rank {rank}")
+                
+            # Wait for cluster details to appear
+            try:
+                supply_element = WebDriverWait(driver, 10).until(
+                    EC.visibility_of_element_located((By.XPATH, "//*[contains(text(), 'Cluster Supply:')]"))
+                )
+                highlight_element(supply_element, "green")
+                
+                supply_text = supply_element.text
+                supply_match = re.search(r'Cluster Supply:\s*([\d.]+)%', supply_text)
+                
+                if supply_match:
+                    supply_percent = supply_match.group(1)
+                    item['Cluster_Supply_Percentage'] = supply_percent
+                    cluster_data['Cluster_Supply_Percentage'] = supply_percent
+                    cluster_data['Cluster_Error'] = ''
+                    logging.info(f"[{thread_id_str}] Extracted cluster supply: {supply_percent}%")
+                else:
+                    item['Cluster_Supply_Percentage'] = 'N/A'
+                    cluster_data['Cluster_Error'] = f"Could not parse cluster supply from: {supply_text}"
+                    logging.warning(f"[{thread_id_str}] {cluster_data['Cluster_Error']}")
+
+            except TimeoutException:
+                error_msg = f"Timed out waiting for cluster details for rank {rank}"
+                logging.warning(f"[{thread_id_str}] {error_msg}")
+                item['Cluster_Supply_Percentage'] = 'N/A'
+                cluster_data['Cluster_Error'] = error_msg
             except Exception as e:
-                logging.error(f"[{thread_id_str}] Error interacting with cluster for rank {rank}: {str(e)}")
-                item['Cluster_Supply_Percentage'] = 'CLICK_ERROR'
+                error_msg = f"Error extracting cluster supply: {str(e)}"
+                logging.error(f"[{thread_id_str}] {error_msg}")
+                item['Cluster_Supply_Percentage'] = 'ERROR'
+                cluster_data['Cluster_Error'] = error_msg
+
+            # Close the cluster details
+            try:
+                close_btn = WebDriverWait(driver, 3).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[contains(@aria-label, 'close')]"))
+                )
+                highlight_element(close_btn, "red")
+                close_btn.click()
+                logging.info(f"[{thread_id_str}] Closed cluster details")
+            except Exception as e:
+                logging.warning(f"[{thread_id_str}] Could not close cluster details with close button: {str(e)}")
+                try:
+                    # Try clicking outside if no close button
+                    body = driver.find_element(By.TAG_NAME, 'body')
+                    body.click()
+                    logging.info(f"[{thread_id_str}] Clicked outside to close cluster details")
+                except Exception as e2:
+                    logging.warning(f"[{thread_id_str}] Could not close cluster details by clicking outside: {str(e2)}")
+                    logging.error(f"[{thread_id_str}] Error interacting with cluster for rank {rank}: {str(e2)}")
+                    item['Cluster_Supply_Percentage'] = 'CLICK_ERROR'
+
+            # Save the cluster data if we have any
+            if cluster_data:
+                processed_cluster_data[cluster_key] = cluster_data
 
         except Exception as e:
-            logging.error(f"[{thread_id_str}] Unexpected error processing rank {rank}: {str(e)}")
+            error_msg = f"Unexpected error processing rank {rank}: {str(e)}"
+            logging.error(f"[{thread_id_str}] {error_msg}")
             item['Cluster_Supply_Percentage'] = 'ERROR'
+            if 'cluster_data' in locals():
+                cluster_data['Cluster_Error'] = error_msg
+                processed_cluster_data[cluster_key] = cluster_data
             continue
 
         # Small delay between processing items
         time.sleep(1)
 
     return augmented_data, processed_cluster_data
-
-    return augmented_initial_data, processed_cluster_data
 
 # --- END MODIFIED FUNCTION ---
 
@@ -883,12 +920,228 @@ def save_cluster_summary_to_csv(token_address, processed_cluster_data, summary_f
         logging.error(f"Unexpected error in save_cluster_summary_to_csv: {str(e)}", exc_info=True)
         return False
 
-def process_single_token_threaded(token_address_with_config: tuple):
-    # ... (rest of the code remains the same)
-    token_address, chrome_binary_path_config, chrome_driver_path_override_config = token_address_with_config
-    thread_id_str = f"Thread-{threading.get_ident()}"
-    thread_driver = None
-    logging.info(f"[{thread_id_str}] --- Starting processing for token: {token_address} ---")
+def process_single_token(driver, token_address: str, thread_id_str: str = "") -> bool:
+    """Process a single token's bubblemaps page.
+    
+    Args:
+        driver: The WebDriver instance
+        token_address: The token address to process
+        thread_id_str: Optional thread identifier for logging
+        
+    Returns:
+        bool: True if processing was successful, False otherwise
+    """
+    try:
+        # Navigate to token's bubblemaps page
+        url = f"https://bubblemaps.io/token/{token_address}"
+        logging.info(f"[{thread_id_str}] Navigating to {url}")
+        driver.get(url)
+        
+        # Check refresh status
+        is_fresh, should_retry = check_refresh_status(driver, thread_id_str)
+        if should_retry:
+            # Wait a bit and check again after refresh
+            time.sleep(3)
+            is_fresh, _ = check_refresh_status(driver, thread_id_str)
+            
+        if not is_fresh:
+            logging.warning(f"[{thread_id_str}] Token {token_address} has stale data and cannot be refreshed - blacklisting")
+            return False
+            
+        # Collect rank data
+        ranks_data = extract_rank_data(driver, thread_id_str)
+        if not ranks_data:
+            logging.warning(f"[{thread_id_str}] No rank data found for token {token_address}")
+            return False
+            
+        # Process cluster data
+        process_cluster_data(driver, ranks_data, thread_id_str)
+        
+        # Save the collected data
+        save_cluster_summary(token_address, ranks_data, thread_id_str)
+        
+        return True
+        
+    except Exception as e:
+        logging.error(f"[{thread_id_str}] Error processing token {token_address}: {e}")
+        return False
+
+def process_single_token_threaded(token_address_with_config):
+    """Thread wrapper for processing a single token."""
+    token_address, chrome_bin_path, chrome_driver_path = token_address_with_config
+    thread_id = threading.get_ident()
+    thread_id_str = f"Thread-{thread_id}"
+    logging.info(f"[{thread_id_str}] Processing token: {token_address}")
+    
+    # Initialize WebDriver
+    driver = None
+    try:
+        driver = initialize_driver(chrome_bin_path, chrome_driver_path)
+        if not driver:
+            logging.error(f"[{thread_id_str}] Failed to initialize WebDriver")
+            return token_address, False
+            
+        # Process the token
+        success = process_single_token(driver, token_address, thread_id_str)
+        if success:
+            # Save to processed tokens if successful
+            save_processed_token_threadsafe(OPENED_TOKENS_FILE, token_address)
+            
+        return token_address, success
+            
+    except Exception as e:
+        logging.error(f"[{thread_id_str}] Error in token processing thread: {e}", exc_info=True)
+        return token_address, False
+    finally:
+        if driver:
+            try:
+                driver.quit()
+                logging.debug(f"[{thread_id_str}] WebDriver closed")
+            except Exception as e:
+                logging.error(f"[{thread_id_str}] Error closing WebDriver: {e}")
+
+def extract_rank_data(driver: webdriver.Chrome, thread_id: str = "") -> List[Dict]:
+    """Extract rank data from the bubblemaps page."""
+    ranks = []
+    try:
+        # Ensure address list panel is open
+        ensure_address_list_panel_open(driver)
+        
+        # Wait for rank rows to be visible
+        rows = WebDriverWait(driver, 15).until(
+            EC.presence_of_all_elements_located(
+                (By.CSS_SELECTOR, "div[role='row']:not(:first-child)")
+            )
+        )
+        logging.info(f"[{thread_id}] Found {len(rows)} rank rows")
+        
+        for i, row in enumerate(rows[:10], 1):  # Only first 10 ranks
+            try:
+                # Get rank number
+                rank = i
+                
+                # Get address
+                address = row.find_element(
+                    By.CSS_SELECTOR, 
+                    "span[class*='MuiTypography-root']"
+                ).text.strip()
+                
+                # Get percentage
+                percentage = row.find_element(
+                    By.CSS_SELECTOR, 
+                    "div[role='cell']:nth-child(3)"
+                ).text.strip()
+                
+                # Check if it's a cluster
+                is_cluster = bool(row.find_elements(
+                    By.XPATH, 
+                    ".//*[contains(@data-testid, 'Cluster') or contains(@aria-label, 'cluster')]"
+                ))
+                
+                ranks.append({
+                    'rank': rank,
+                    'address': address,
+                    'percentage': percentage,
+                    'is_cluster': is_cluster,
+                    'global_cluster_percentage': ''
+                })
+                
+                logging.debug(f"[{thread_id}] Extracted rank {rank}: {address} ({percentage}) - Cluster: {is_cluster}")
+                
+            except Exception as e:
+                logging.warning(f"[{thread_id}] Error processing rank {i}: {e}")
+                continue
+                
+    except Exception as e:
+        logging.error(f"[{thread_id}] Error extracting rank data: {e}")
+    
+    return ranks
+
+def process_cluster_data(driver: webdriver.Chrome, ranks_data: List[Dict], thread_id: str = "") -> None:
+    """Process cluster data for ranks that are clusters."""
+    for rank_data in ranks_data:
+        if not rank_data.get('is_cluster'):
+            continue
+            
+        try:
+            rank = rank_data['rank']
+            logging.info(f"[{thread_id}] Processing cluster for rank {rank}")
+            
+            # Find and click the cluster row
+            row_xpath = f"//div[@role='row'][.//span[contains(text(),'\"{rank_data['address']}\"')]]"
+            row = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, row_xpath))
+            )
+            row.click()
+            time.sleep(1)  # Wait for cluster details to load
+            
+            # Extract global cluster percentage
+            try:
+                global_pct = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located(
+                        (By.XPATH, "//*[contains(text(),'Global Cluster')]/following-sibling::div")
+                    )
+                ).text.strip()
+                rank_data['global_cluster_percentage'] = global_pct
+                logging.debug(f"[{thread_id}] Found global cluster percentage: {global_pct}")
+            except:
+                logging.warning(f"[{thread_id}] Could not find global cluster percentage")
+                
+            # Close the cluster details
+            try:
+                close_btn = driver.find_element(
+                    By.XPATH, 
+                    "//button[.//*[contains(@data-testid, 'Close')]]"
+                )
+                close_btn.click()
+                time.sleep(0.5)
+            except:
+                logging.warning(f"[{thread_id}] Could not find close button for cluster details")
+                
+        except Exception as e:
+            logging.error(f"[{thread_id}] Error processing cluster for rank {rank_data.get('rank')}: {e}")
+            continue
+
+def save_cluster_summary(token_address: str, ranks_data: List[Dict], thread_id: str = "") -> None:
+    """Save the cluster summary data to CSV."""
+    if not ranks_data:
+        logging.warning(f"[{thread_id}] No rank data to save for token {token_address}")
+        return
+        
+    # Prepare data for CSV
+    rows = []
+    for rank_data in ranks_data:
+        rows.append({
+            'token_address': token_address,
+            'rank': rank_data['rank'],
+            'address': rank_data['address'],
+            'supply_percentage': rank_data['percentage'],
+            'is_cluster': str(rank_data['is_cluster']).lower(),
+            'global_cluster_percentage': rank_data.get('global_cluster_percentage', ''),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+    
+    # Write to CSV
+    file_exists = os.path.exists(CLUSTER_SUMMARY_FILE)
+    with CLUSTER_SUMMARY_LOCK:
+        try:
+            with open(CLUSTER_SUMMARY_FILE, 'a', newline='', encoding='utf-8') as f:
+                fieldnames = [
+                    'token_address', 'rank', 'address', 'supply_percentage',
+                    'is_cluster', 'global_cluster_percentage', 'timestamp'
+                ]
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                
+                if not file_exists:
+                    writer.writeheader()
+                
+                for row in rows:
+                    writer.writerow(row)
+                    
+            logging.info(f"[{thread_id}] Saved cluster data for token {token_address}")
+            
+        except Exception as e:
+            logging.error(f"[{thread_id}] Error saving cluster summary: {e}")
 
     try: # Outer try for driver initialization and final cleanup
         thread_driver = initialize_driver(chrome_binary_path_config, chrome_driver_path_override_config)

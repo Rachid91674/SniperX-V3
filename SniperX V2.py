@@ -29,10 +29,85 @@ def safe_float_convert(value, default):
     except ValueError:
         return default
 
+def calculate_risk_score(token):
+    """Calculate a risk score for a token (0-100, higher is riskier)"""
+    if not token:
+        return 100  # Max risk for invalid tokens
+    
+    risk_score = 0.0
+    
+    try:
+        # 1. Price Volatility (higher 24h change = higher risk)
+        price_change = abs(safe_float_convert(token.get('price_24h_change', 0), 0))
+        volatility_score = min(100, price_change * 2)  # Cap at 100%
+        
+        # 2. Holder Concentration (fewer holders = higher risk)
+        holders = safe_float_convert(token.get('holders', 0), 0)
+        holder_score = 0
+        if holders > 0:
+            holder_score = min(100, 1000 / holders)  # More holders = lower score
+        
+        # 3. Liquidity Depth (lower liquidity = higher risk)
+        liquidity = safe_float_convert(token.get('liquidity', 0), 0)
+        liquidity_score = 0
+        if liquidity > 0:
+            liquidity_score = min(100, 1000000 / liquidity)  # More liquidity = lower score
+        
+        # 4. Token Age (newer tokens = higher risk)
+        created_at = token.get('created_at', '')
+        age_days = 0
+        if created_at:
+            try:
+                created_date = dateparser.parse(created_at)
+                if created_date:
+                    age_days = (datetime.datetime.now() - created_date).days
+            except:
+                pass
+        age_score = max(0, 100 - (age_days * 0.5))  # Older tokens are less risky
+        
+        # 5. Transaction Activity (lower activity = higher risk)
+        txns_24h = safe_float_convert(token.get('txns_24h', 0), 0)
+        txn_score = 100
+        if txns_24h > 0:
+            txn_score = max(0, 100 - (txns_24h * 0.1))  # More transactions = lower risk
+        
+        # Calculate weighted risk score
+        risk_score = (
+            (volatility_score * RISK_WEIGHTS['price_volatility']) +
+            (holder_score * RISK_WEIGHTS['holder_concentration']) +
+            (liquidity_score * RISK_WEIGHTS['liquidity_depth']) +
+            (age_score * RISK_WEIGHTS['age']) +
+            (txn_score * RISK_WEIGHTS['transaction_activity'])
+        )
+        
+        # Ensure score is between 0 and 100
+        risk_score = max(0, min(100, risk_score))
+        
+    except Exception as e:
+        logging.error(f"Error calculating risk score for token {token.get('address', 'unknown')}: {e}")
+        risk_score = 100  # Max risk if error occurs
+    
+    return round(risk_score, 2)
+
 # --- Global Configurations & Constants ---
 TEST_MODE = len(sys.argv) > 1 and sys.argv[1] == "--test"
 MORALIS_API_KEYS = [os.getenv(f"MORALIS_API_KEY_{i}", "").split('#')[0].strip() for i in range(1,6)]
 MORALIS_API_KEYS = [k for k in MORALIS_API_KEYS if k]
+
+# Filtering thresholds
+MIN_VOLUME_24H = 600000  # $600K minimum 24h volume
+MIN_HOLDERS = 100        # Minimum number of holders
+MIN_LIQUIDITY = 100000   # $100K minimum liquidity
+MAX_RISK_SCORE = 70      # Maximum allowed risk score (0-100)
+
+# Risk score weights (sum should be 1.0)
+RISK_WEIGHTS = {
+    'price_volatility': 0.3,
+    'holder_concentration': 0.25,
+    'liquidity_depth': 0.2,
+    'age': 0.15,
+    'transaction_activity': 0.1
+}
 if not MORALIS_API_KEYS:
     single_key = os.getenv("MORALIS_API_KEY")
     if single_key:
@@ -79,81 +154,38 @@ GHOST_VOLUME_MIN_PCT_5M = safe_float_convert(raw_gv5, 0.5)
 raw_gpr = os.getenv("GHOST_PRICE_REL_MULTIPLIER", "2").split('#')[0].strip()
 GHOST_PRICE_REL_MULTIPLIER = safe_float_convert(raw_gpr, 2.0)
 
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-
-def get_trending_tokens():
-    print("[INFO] Fetching trending tokens from Moralis...")
-    for idx, key in enumerate(MORALIS_API_KEYS, start=1):
-        print(f"[INFO] Trying Moralis API key {idx}/{len(MORALIS_API_KEYS)}")
-        headers = {"X-API-Key": key, "accept": "application/json"}
+def parse_token_data(tokens):
+    """Parse token data from the API response."""
+    parsed = []
+    for t in tokens:
+        if not isinstance(t, dict):
+            continue
+            
         try:
-            resp = requests.get(TRENDING_API_URL, headers=headers, timeout=20)
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, list):
-                tokens = data
-            elif isinstance(data, dict):
-                tokens = data.get('tokens') or data.get('result') or []
-            else:
-                tokens = []
-            print(f"[INFO] Retrieved {len(tokens)} tokens with key {idx}.")
+            # Extract volume and price data
+            volume_24h = t.get('totalVolume', {}).get('h24')
+            price_usd = t.get('priceUsd')
             
-            parsed = []
-            if tokens:
-                first_token = tokens[0]
-                print("\n[DEBUG] First token structure:")
-                print(json.dumps(first_token, indent=2))
-                print("\n[DEBUG] Available token keys:", list(first_token.keys()))
+            token_data = {
+                'tokenAddress': t.get('tokenAddress', '').lower().strip(),
+                'name': t.get('name', '').strip(),
+                'symbol': t.get('symbol', '').strip(),
+                'priceUsd': float(price_usd) if price_usd is not None else 0,
+                'volume_24h': float(volume_24h) if volume_24h is not None else 0,
+                'rawData': t  # Keep original data for debugging
+            }
                 
-                # Log some key values for debugging
-                print("\n[DEBUG] Sample token values:")
-                for key in ['token_address', 'address', 'name', 'symbol', 
-                          'price_usd', 'priceUsd', 'price',
-                          'volume_24h', 'volume24h', 'volume']:
-                    if key in first_token:
-                        print(f"  {key}: {first_token[key]}")
+            # Debug log the first token's parsed data
+            if not parsed:
+                logger.info(f"First parsed token data: {token_data}")
             
-            for t in tokens:
-                # Get token address - prioritize tokenAddress field
-                token_address = t.get('tokenAddress')
-                
-                # Get price - prioritize usdPrice field
-                price_usd = t.get('usdPrice')
-                
-                # Get 24h volume - look in totalVolume.24h
-                volume_24h = None
-                if 'totalVolume' in t and isinstance(t['totalVolume'], dict):
-                    volume_24h = t['totalVolume'].get('24h')
-                
-                token_data = {
-                    'tokenAddress': token_address,
-                    'name': t.get('name', '').strip(),
-                    'symbol': t.get('symbol', '').strip(),
-                    'priceUsd': float(price_usd) if price_usd is not None else 0,
-                    'volume_24h': float(volume_24h) if volume_24h is not None else 0,
-                    'rawData': t  # Keep original data for debugging
-                }
-                
-                # Debug log the first token's parsed data
-                if not parsed:
-                    print("\n[DEBUG] First token parsed data:")
-                    print(json.dumps(token_data, indent=2))
-                    print("\n[DEBUG] Raw volume data:", t.get('totalVolume'))
-                    print("[DEBUG] Extracted 24h volume:", volume_24h)
-                    print("[DEBUG] Extracted price:", price_usd)
-                
-                parsed.append(token_data)
-            return parsed
-        except requests.exceptions.HTTPError as err:
-            status = getattr(err.response, 'status_code', None)
-            print(f"[WARN] Key {idx} HTTP {status} error: {err}. Trying next key.")
-        except requests.exceptions.RequestException as err:
-            print(f"[WARN] Request error with key {idx}: {err}. Trying next key.")
-        except ValueError:
-            print(f"[WARN] Invalid JSON with key {idx}. Trying next key.")
-    print("[ERROR] All Moralis API keys failed; please check Moralis API quota.")
-    return []
+            parsed.append(token_data)
+            
+        except (ValueError, AttributeError, TypeError) as e:
+            logger.error(f"Error parsing token data: {e}", exc_info=True)
+            continue
+            
+    return parsed
 
 def filter_preliminary(tokens):
     """Filter tokens based on 24h volume > 600K and price > 0.00078"""
@@ -299,11 +331,63 @@ def load_processed_tokens(filepath):
     return tokens
 
 def save_processed_token(filepath, token_address):
+    with PROCESSED_TOKENS_LOCK:
+        try:
+            with open(filepath, 'a') as f:
+                f.write(f"{token_address}\n")
+        except Exception as e:
+            logging.error(f"Error saving processed token {token_address}: {e}")
+
+def save_filtered_tokens(tokens, filepath):
+    """Save filtered tokens to a CSV file with all relevant data"""
+    if not tokens:
+        logging.info("No tokens to save")
+        return
+        
     try:
-        with open(filepath, 'a', encoding='utf-8') as f:
-            f.write(token_address + '\n')
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+        
+        # Define the CSV header
+        fieldnames = [
+            'address', 'symbol', 'name', 'price_usd', 'price_24h_change',
+            'volume_24h', 'liquidity', 'market_cap', 'fdv', 'holders',
+            'txns_24h', 'created_at', 'risk_score', 'last_updated'
+        ]
+        
+        # Check if file exists to determine if we need to write headers
+        file_exists = os.path.isfile(filepath)
+        
+        with open(filepath, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            
+            # Write header only if file is being created
+            if not file_exists:
+                writer.writeheader()
+            
+            # Write token data
+            for token in tokens:
+                writer.writerow({
+                    'address': token.get('address', ''),
+                    'symbol': token.get('symbol', ''),
+                    'name': token.get('name', ''),
+                    'price_usd': token.get('price_usd', 0),
+                    'price_24h_change': token.get('price_24h_change', 0),
+                    'volume_24h': token.get('volume_24h', 0),
+                    'liquidity': token.get('liquidity', 0),
+                    'market_cap': token.get('market_cap', 0),
+                    'fdv': token.get('fdv', 0),
+                    'holders': token.get('holders', 0),
+                    'txns_24h': token.get('txns_24h', 0),
+                    'created_at': token.get('created_at', ''),
+                    'risk_score': token.get('risk_score', 0),
+                    'last_updated': datetime.datetime.utcnow().isoformat()
+                })
+                
+        logging.info(f"Saved {len(tokens)} filtered tokens to {filepath}")
+        
     except Exception as e:
-        logging.error(f"Error writing processed token {token_address} to {filepath}: {e}")
+        logging.error(f"Error saving filtered tokens to {filepath}: {e}")
 
 def process_window(win_minutes, prelim_tokens, script_dir_path):
     sleep_seconds = win_minutes * 60
@@ -442,54 +526,25 @@ def process_window(win_minutes, prelim_tokens, script_dir_path):
             # Combine fieldnames, ensuring no duplicates
             fieldnames = base_fieldnames + [h for h in risk_headers if h not in base_fieldnames]
             
-            # Also update trades.csv headers if it exists
-            trades_path = os.path.join(script_dir_path, 'trades.csv')
-            trade_extra_fields = [
-                'timestamp','token_name','mint_address','reason',
-                'buy_price','sell_price','gain_loss_pct','result'
-            ]
-            combined_trade_headers = fieldnames + [h for h in trade_extra_fields if h not in fieldnames]
-            if os.path.exists(trades_path):
-                with open(trades_path, 'r+', newline='', encoding='utf-8') as f:
-                    existing_headers = []
-                    try:
-                        reader = csv.reader(f)
-                        existing_headers = next(reader, [])
-                        if set(combined_trade_headers) != set(existing_headers):
-                            f.seek(0)
-                            data = list(csv.DictReader(f))
-                            f.seek(0)
-                            f.truncate()
-                            writer = csv.DictWriter(f, fieldnames=combined_trade_headers)
-                            writer.writeheader()
-                            writer.writerows(data)
-                    except StopIteration:
-                        f.seek(0)
-                        writer = csv.DictWriter(f, fieldnames=combined_trade_headers)
-                        writer.writeheader()
-            
+            # Initialize CSV writer
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             if write_header:
                 writer.writeheader()
             
-            rows_added = 0
+            # Write each token's data
             for t_data in new_tokens:
-                addr = t_data.get('tokenAddress')
-                if not addr or addr in existing_tokens:
+                addr = t_data['tokenAddress']
+                if addr in existing_tokens:
                     continue
                     
-                p1, l1, v1 = first_snaps.get(addr, (0, 0, 0))
-                p2, l2, v2 = second_snaps.get(addr, (0, 0, 0))
-                
-                # Prepare base row data
                 row_data = {
-                    'Address': addr, 
-                    'Name': sanitize_name(t_data.get('name'), t_data.get('symbol')),
-                    'Price USD': f"{p2:.8f}", 
-                    f'Liquidity({win_minutes}m)': f"{l2:.2f}",
-                    f'Volume({win_minutes}m)': f"{max(0, v2-v1):.2f}", 
-                    f'{win_minutes}m Change': f"{((p2/p1-1)*100 if p1 else 0):.2f}",
-                    'Open Chart': f'=HYPERLINK(\"https://dexscreener.com/{DEXSCREENER_CHAIN_ID}/{addr}\",\"Open Chart\")',
+                    'Address': addr,
+                    'Name': t_data.get('name', 'N/A'),
+                    'Price USD': f"${float(t_data.get('priceUsd', 0)):.10f}".rstrip('0').rstrip('.'),
+                    f'Liquidity({win_minutes}m)': str(t_data.get('liquidity', 'N/A')),
+                    f'Volume({win_minutes}m)': str(t_data.get('volume', 'N/A')),
+                    f'{win_minutes}m Change': str(t_data.get('change', 'N/A')),
+                    'Open Chart': f"https://dexscreener.com/ethereum/{addr}",
                     'Snipe': 'Yes' if t_data in snipe_candidates else '', 
                     'Ghost Buyer': 'Yes' if t_data in ghost_buyer_candidates else ''
                 }
@@ -699,7 +754,31 @@ def start_slave_watchdog(script_dir_path):
         logging.error(f"Failed to start watchdog: {e}")
         return None
 
+def get_trending_tokens():
+    """Fetch trending tokens from Moralis API"""
+    url = "https://deep-index.moralis.io/api/v2.2/erc20/top/trending"
+    headers = {
+        "accept": "application/json",
+        "X-API-Key": MORALIS_API_KEYS[0] if MORALIS_API_KEYS else ""
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        
+        if not isinstance(data, list):
+            logging.error(f"Unexpected API response format: {data}")
+            return []
+            
+        return data
+        
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching trending tokens: {e}")
+        return []
+
 def main_token_processing_loop(script_dir_path):
+    """Main processing loop for token analysis"""
     tokens = get_trending_tokens()
     prelim_filtered_tokens = filter_preliminary(tokens)
     window_results_aggregator = {}

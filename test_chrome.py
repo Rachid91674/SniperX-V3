@@ -274,146 +274,263 @@ def extract_initial_address_list_data(driver) -> list:
     except Exception as e: logging.error(f"[{threading.get_ident()}] Err in extract_initial_address_list_data: {e}", exc_info=True); return []
 
 # --- MODIFIED FUNCTION ---
+def is_dex_supply(list_item):
+    """Check if the list item is a DEX supply entry"""
+    try:
+        # Look for Raydium or other DEX indicators in the address
+        address_el = list_item.find_element(By.XPATH, ".//p[contains(@class, 'MuiTypography-body1')]")
+        address_text = address_el.text.lower()
+        is_dex = 'raydium:' in address_text or 'dex' in address_text or 'vault' in address_text
+        return is_dex, address_el.text if is_dex else None
+    except Exception as e:
+        return False, None
+
+def is_individual_cluster(list_item):
+    """Check if the list item is an individual cluster"""
+    try:
+        # Individual clusters have a specific empty box element
+        list_item.find_element(By.XPATH, ".//div[contains(@class, 'MuiBox-root') and not(*)]")
+        return True
+    except NoSuchElementException:
+        return False
+
 def click_clusters_and_extract_supply_data(driver, initial_data_list: list) -> tuple[list, dict]:
     thread_id_str = f"Thread-{threading.get_ident()}"
-    logging.debug(f"[{thread_id_str}] Starting cluster click processing for {len(initial_data_list)} items.")
+    logging.info(f"[{thread_id_str}] Starting cluster click processing for {len(initial_data_list)} items.")
+    
+    # Function to highlight an element (for debugging)
+    def highlight_element(element, color="red", border=2):
+        try:
+            driver.execute_script(
+                "arguments[0].style.border='{}px solid {}'".format(border, color),
+                element
+            )
+            time.sleep(0.2)
+            return True
+        except:
+            return False
 
-    # Ensure initial_data_list is a list
     if not isinstance(initial_data_list, list):
-        logging.error(f"[{thread_id_str}] initial_data_list is not a list. Received type: {type(initial_data_list)}. Aborting cluster processing.")
+        logging.error(f"[{thread_id_str}] initial_data_list is not a list. Received type: {type(initial_data_list)}")
         return [], {}
 
     try:
-        scroller = WebDriverWait(driver, 7).until(EC.presence_of_element_located((By.XPATH, "//div[@data-testid='virtuoso-scroller']")))
-    except TimeoutException:
-        logging.error(f"[{thread_id_str}] Main scroller for address list not found. Cannot process clusters.")
-        return initial_data_list, {} # Return original data and empty cluster info
+        # Wait for the address list to be visible
+        WebDriverWait(driver, 15).until(
+            EC.visibility_of_element_located((By.XPATH, "//p[contains(text(),'Address List')]"))
+        )
+        ensure_address_list_panel_open(driver)
+        
+        # Get the scroller element
+        scroller = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//div[@data-testid='virtuoso-scroller']"))
+        )
+        driver.execute_script("arguments[0].scrollTop = 0", scroller)
+        time.sleep(1)  # Wait for scroll to complete
+    except Exception as e:
+        logging.error(f"[{thread_id_str}] Failed to initialize list view: {str(e)}")
+        return initial_data_list, {}
 
-    processed_cluster_data = {} # Stores {cluster_muibox_key: supply_percentage_str}
-    augmented_initial_data = initial_data_list[:] # Create a copy to modify
+    processed_cluster_data = {}
+    augmented_data = initial_data_list.copy()
 
-    for item_index, item_data in enumerate(augmented_initial_data):
-        # Ensure item_data is a dictionary and has the required keys
-        if not isinstance(item_data, dict) or not all(k in item_data for k in ['Rank', 'Address', 'MuiBox_Class_String']):
-            logging.warning(f"[{thread_id_str}] Skipping item at index {item_index} due to missing keys or incorrect type: {item_data}")
+    for idx, item in enumerate(augmented_data):
+        if not isinstance(item, dict) or 'Rank' not in item or 'Address' not in item:
             continue
 
-        rank_to_find_str = item_data['Rank']
-        address_to_find = item_data['Address']
-        current_muibox_class_string = item_data.get('MuiBox_Class_String', "MuiBox-Not-Found")
-        is_rank_one = (rank_to_find_str == "1")
+        rank = item.get('Rank')
+        address = item.get('Address')
+        logging.info(f"[{thread_id_str}] Processing rank {rank} - {address}")
 
-        # Determine if the current list entry visually represents an individual wallet.
-        # Presence of a cluster icon indicates a cluster; otherwise it is treated
-        # as an individual wallet.  This information is captured during the
-        # initial extraction stage and stored under 'Is_Individual_Wallet_Visual'.
-        is_individual_wallet_visual = item_data.get('Is_Individual_Wallet_Visual', False)
+        try:
+            # Find the list item for this address
+            list_item = None
+            max_scroll_attempts = 5
+            found = False
 
-        if is_rank_one and is_individual_wallet_visual:
-            logging.info(f"[{thread_id_str}] Rank #1 ({address_to_find}) is visually individual. Treating its own holdings as its cluster data.")
-            individual_perc_str = item_data.get('Individual_Percentage', '0')
-            item_data['Cluster_Supply_Percentage'] = individual_perc_str
-            processed_cluster_data[RANK1_AS_CLUSTER_KEY] = individual_perc_str
-            continue
-
-        if is_individual_wallet_visual: # For ranks > 1 that are individual
-            item_data['Cluster_Supply_Percentage'] = '0'
-            continue
-
-        # For items part of a visual cluster (colored MuiBox)
-        normalized_muibox_key = " ".join(sorted(current_muibox_class_string.split()))
-        if normalized_muibox_key in processed_cluster_data:
-            item_data['Cluster_Supply_Percentage'] = processed_cluster_data[normalized_muibox_key]
-            continue
-
-        logging.info(f"[{thread_id_str}] Rank #{rank_to_find_str} ({address_to_find}) is part of a NEW visual cluster ('{normalized_muibox_key}'). Finding & Clicking.")
-        target_button_element = None
-        found_item_for_processing = False
-
-        # Attempt to find the specific item in the scrollable list
-        # This loop tries to scroll and find the item if not immediately visible
-        for scroll_attempt in range(7): # Max 7 scroll attempts
-            # Re-fetch visible buttons in each attempt as DOM might change after scroll or interaction
-            list_item_buttons_xpath = "//div[@data-testid='virtuoso-item-list']//div[contains(@class, 'MuiListItemButton-root')]"
-            visible_buttons = driver.find_elements(By.XPATH, list_item_buttons_xpath)
-
-            for button_element_candidate in visible_buttons:
+            for scroll_attempt in range(max_scroll_attempts):
                 try:
-                    # Extract rank and address from the candidate button
-                    rank_text_candidate = button_element_candidate.find_element(By.XPATH, ".//span[starts-with(normalize-space(), '#')]").text.strip().replace('#', '')
-                    addr_text_candidate = button_element_candidate.find_element(By.XPATH, ".//p[@aria-label]").text.strip()
+                    # Find all list items
+                    list_items = driver.find_elements(
+                        By.XPATH, 
+                        "//div[contains(@class, 'MuiListItemButton-root') and .//span[contains(text(), '#')]]"
+                    )
+                    logging.info(f"[{thread_id_str}] Found {len(list_items)} list items on attempt {scroll_attempt + 1}")
 
-                    if rank_text_candidate == rank_to_find_str and addr_text_candidate == address_to_find:
-                        target_button_element = button_element_candidate
-                        found_item_for_processing = True
+                    for li in list_items:
+                        try:
+                            item_rank = li.find_element(
+                                By.XPATH, 
+                                ".//span[starts-with(normalize-space(), '#')]"
+                            ).text.strip('#').strip()
+                            item_address = li.find_element(
+                                By.XPATH, 
+                                ".//p[contains(@class, 'MuiTypography-root')]"
+                            ).text.strip()
+                            
+                            if item_rank == rank and item_address == address:
+                                list_item = li
+                                found = True
+                                logging.info(f"[{thread_id_str}] Found matching item for rank {rank}")
+                                break
+                        except Exception as e:
+                            logging.debug(f"[{thread_id_str}] Error processing list item: {str(e)}")
+                            continue
+                    
+                    if found:
                         break
-                except (NoSuchElementException, StaleElementReferenceException):
-                    # Element might be stale or parts missing, common in dynamic lists, try next candidate
-                    continue
+                        
+                    # If not found, scroll down
+                    driver.execute_script("arguments[0].scrollTop += 300", scroller)
+                    time.sleep(0.8)  # Increased wait time for scroll
+                    
+                except Exception as e:
+                    logging.warning(f"[{thread_id_str}] Error during scroll attempt {scroll_attempt + 1}: {str(e)}")
+                    time.sleep(1)
 
-            if found_item_for_processing:
-                break # Exit scroll attempts loop if item found
+            if not list_item:
+                logging.warning(f"[{thread_id_str}] Could not find list item for rank {rank} after {max_scroll_attempts} attempts")
+                continue
 
-            # If not found, scroll down and try again
-            if scroll_attempt < 6: # Don't scroll on the last attempt
-                driver.execute_script("arguments[0].scrollTop += arguments[0].clientHeight * 0.75;", scroller)
-                time.sleep(1.5) # Wait for scroll and potential new items to load
-
-        if target_button_element:
+            # Check the type of list item
             try:
-                # Scroll the found item into center view for reliable clicking
-                driver.execute_script("arguments[0].scrollIntoView({block:'center', behavior: 'smooth'});", target_button_element)
-                time.sleep(0.7) # Wait for scroll to complete
+                # Handle DEX supply entries
+                is_dex, dex_address = is_dex_supply(list_item)
+                if is_dex:
+                    logging.info(f"[{thread_id_str}] Rank {rank} is a DEX supply entry")
+                    item['Address_Type'] = 'DEX_SUPPLY'
+                    item['DEX_Address'] = dex_address
+                    # Try to get the percentage if available
+                    try:
+                        percent_el = list_item.find_element(By.XPATH, ".//span[contains(@class, 'MuiTypography-body2')]")
+                        item['DEX_Percentage'] = percent_el.text
+                    except:
+                        item['DEX_Percentage'] = 'N/A'
+                    continue
+                
+                # Handle individual clusters
+                if is_individual_cluster(list_item):
+                    logging.info(f"[{thread_id_str}] Rank {rank} is an individual cluster")
+                    item['Address_Type'] = 'INDIVIDUAL_CLUSTER'
+                    # Try to get address and percentage
+                    try:
+                        address_el = list_item.find_element(By.XPATH, ".//p[contains(@class, 'MuiTypography-body1')]")
+                        item['Cluster_Address'] = address_el.text
+                        
+                        percent_el = list_item.find_element(By.XPATH, ".//span[contains(@class, 'MuiTypography-body2')]")
+                        item['Cluster_Percentage'] = percent_el.text
+                        
+                        # Also log the rank
+                        rank_el = list_item.find_element(By.XPATH, ".//span[contains(@class, 'MuiTypography-body2') and contains(@class, 'MuiListItemText-primary')]")
+                        item['Cluster_Rank'] = rank_el.text.strip('# ')
+                    except Exception as e:
+                        logging.error(f"[{thread_id_str}] Error getting individual cluster data: {str(e)}")
+                        item['Cluster_Error'] = str(e)
+                    continue
+                
+                # If we get here, it should be a linked cluster
+                logging.info(f"[{thread_id_str}] Rank {rank} appears to be a linked cluster, processing...")
+                item['Address_Type'] = 'LINKED_CLUSTER'
+                
+                # Try to find the cluster icon using multiple strategies
+                cluster_icon = None
+                icon_xpaths = [
+                    ".//*[local-name()='svg' and .//*[contains(@d, 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z')]]",
+                    ".//*[contains(@class, 'MuiSvgIcon-root')]",
+                    ".//*[contains(@class, 'cluster-icon')]"
+                ]
+                
+                for xpath in icon_xpaths:
+                    try:
+                        cluster_icon = list_item.find_element(By.XPATH, xpath)
+                        if cluster_icon:
+                            highlight_element(cluster_icon, "green")
+                            logging.info(f"[{thread_id_str}] Found cluster icon using XPath: {xpath}")
+                            break
+                    except:
+                        continue
+                
+                if not cluster_icon:
+                    logging.info(f"[{thread_id_str}] No cluster icon found for rank {rank}, but treating as linked cluster")
+                    
+            except Exception as e:
+                logging.error(f"[{thread_id_str}] Error determining list item type: {str(e)}")
+                item['Cluster_Supply_Percentage'] = 'ERROR'
+                continue
 
-                click_element_with_fallback(driver, target_button_element, timeout=10, max_attempts=3, log_prefix=f"[{thread_id_str}] Cluster Item")
-                logging.info(f"[{thread_id_str}] Clicked on cluster item: Rank #{rank_to_find_str} ({address_to_find}).")
-
-                extracted_supply_value = 'N/A'
+            # Click the list item to open cluster details
+            try:
+                # Scroll to the item
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'}});", list_item)
+                time.sleep(0.8)
+                
+                # Highlight before clicking
+                highlight_element(list_item, "blue", 3)
+                
+                # Try clicking with JavaScript first
                 try:
-                    # XPath for the "Cluster Supply: X.XX%" text, assuming it appears after click
-                    supply_el_xpath = "//p[starts-with(normalize-space(),'Cluster Supply:')][1]"
-                    supply_el = WebDriverWait(driver,15).until(EC.visibility_of_element_located((By.XPATH,supply_el_xpath)))
-
-                    match = re.search(r"Cluster Supply:\s*([\d\.]+)\s*%", supply_el.text.strip())
-                    if match:
-                        extracted_supply_value = match.group(1)
-                        logging.info(f"[{thread_id_str}] Extracted Cluster Supply for '{normalized_muibox_key}': {extracted_supply_value}%")
+                    driver.execute_script("arguments[0].click();", list_item)
+                    logging.info(f"[{thread_id_str}] Clicked on cluster using JavaScript for rank {rank}")
+                except:
+                    # Fall back to regular click
+                    list_item.click()
+                    logging.info(f"[{thread_id_str}] Clicked on cluster using Selenium for rank {rank}")
+                
+                # Wait for cluster details to appear
+                try:
+                    supply_element = WebDriverWait(driver, 10).until(
+                        EC.visibility_of_element_located((By.XPATH, "//*[contains(text(), 'Cluster Supply:')]"))
+                    )
+                    highlight_element(supply_element, "green")
+                    
+                    supply_text = supply_element.text
+                    supply_match = re.search(r'Cluster Supply:\s*([\d.]+)%', supply_text)
+                    
+                    if supply_match:
+                        supply_percent = supply_match.group(1)
+                        item['Cluster_Supply_Percentage'] = supply_percent
+                        logging.info(f"[{thread_id_str}] Extracted cluster supply: {supply_percent}%")
                     else:
-                        extracted_supply_value = 'Error:Format'
-                        logging.warning(f"[{thread_id_str}] Could not parse cluster supply from text: '{supply_el.text.strip()}' for Rank {rank_to_find_str}")
+                        item['Cluster_Supply_Percentage'] = 'N/A'
+                        logging.warning(f"[{thread_id_str}] Could not parse cluster supply from: {supply_text}")
+
                 except TimeoutException:
-                    extracted_supply_value = 'N/A:TimeoutOnSupply'
-                    logging.warning(f"[{thread_id_str}] Timeout waiting for cluster supply element for '{normalized_muibox_key}' (Rank {rank_to_find_str}).")
-                except Exception as e_supply_extract:
-                    extracted_supply_value = f'N/A:ErrorOnSupply ({type(e_supply_extract).__name__})'
-                    logging.warning(f"[{thread_id_str}] Error extracting cluster supply for '{normalized_muibox_key}' (Rank {rank_to_find_str}): {e_supply_extract}")
+                    logging.warning(f"[{thread_id_str}] Timed out waiting for cluster details for rank {rank}")
+                    item['Cluster_Supply_Percentage'] = 'N/A'
+                except Exception as e:
+                    logging.error(f"[{thread_id_str}] Error extracting cluster supply: {str(e)}")
+                    item['Cluster_Supply_Percentage'] = 'ERROR'
 
-                item_data['Cluster_Supply_Percentage'] = extracted_supply_value
-                processed_cluster_data[normalized_muibox_key] = extracted_supply_value
+                # Close the cluster details
+                try:
+                    close_btn = WebDriverWait(driver, 3).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(@aria-label, 'close')]"))
+                    )
+                    highlight_element(close_btn, "red")
+                    close_btn.click()
+                    logging.info(f"[{thread_id_str}] Closed cluster details")
+                except:
+                    try:
+                        # Try clicking outside if no close button
+                        body = driver.find_element(By.TAG_NAME, 'body')
+                        body.click()
+                        logging.info(f"[{thread_id_str}] Clicked outside to close cluster details")
+                    except:
+                        logging.warning(f"[{thread_id_str}] Could not close cluster details")
+                
+            except Exception as e:
+                logging.error(f"[{thread_id_str}] Error interacting with cluster for rank {rank}: {str(e)}")
+                item['Cluster_Supply_Percentage'] = 'CLICK_ERROR'
 
-                # After processing a cluster, the page state needs to be suitable for the next iteration.
-                # Bubblemaps might automatically close the cluster detail view, or it might overlay.
-                # If it overlays and needs explicit closing, a click on a 'close' button for the cluster detail
-                # would be needed here. For now, we assume the main list is still accessible for the next item.
-                # A short pause can help if the UI is transitioning.
-                time.sleep(1) # Small pause for UI to settle after cluster interaction
+        except Exception as e:
+            logging.error(f"[{thread_id_str}] Unexpected error processing rank {rank}: {str(e)}")
+            item['Cluster_Supply_Percentage'] = 'ERROR'
+            continue
 
-            except StaleElementReferenceException:
-                logging.warning(f"[{thread_id_str}] StaleElementReferenceException when trying to click or process cluster for Rank #{rank_to_find_str}. Item might have changed.")
-                item_data['Cluster_Supply_Percentage'] = 'Error:StaleElementOnClick'
-                processed_cluster_data[normalized_muibox_key] = 'Error:StaleElementOnClick'
-            except TimeoutException:
-                logging.warning(f"[{thread_id_str}] TimeoutException when trying to click cluster for Rank #{rank_to_find_str}. Element not clickable or disappeared.")
-                item_data['Cluster_Supply_Percentage'] = 'Error:TimeoutOnClick'
-                processed_cluster_data[normalized_muibox_key] = 'Error:TimeoutOnClick'
-            except Exception as e_click_general:
-                logging.error(f"[{thread_id_str}] General error clicking/processing cluster for Rank #{rank_to_find_str} ({address_to_find}): {e_click_general}", exc_info=True)
-                item_data['Cluster_Supply_Percentage'] = f'Error:ClickFailed ({type(e_click_general).__name__})'
-                processed_cluster_data[normalized_muibox_key] = f'Error:ClickFailed ({type(e_click_general).__name__})'
-        else:
-            logging.warning(f"[{thread_id_str}] Could not find item on page for Rank #{rank_to_find_str} ({address_to_find}) to click for cluster data after scroll attempts.")
-            item_data['Cluster_Supply_Percentage'] = 'Error:ItemNotFoundOnPage'
-            # Not adding to processed_cluster_data as we couldn't get its MuiBox key reliably if item not found
+        # Small delay between processing items
+        time.sleep(1)
+
+    return augmented_data, processed_cluster_data
 
     return augmented_initial_data, processed_cluster_data
 
@@ -450,38 +567,80 @@ def cleanup_token_data(token_address: str):
 def save_cluster_summary_data(token_address: str, processed_cluster_data: dict): # Renamed arg
     # This function must be called with CLUSTER_SUMMARY_LOCK acquired
 
-    # processed_cluster_data now contains either {normalized_mui_box_key: supply_perc} OR {RANK1_AS_CLUSTER_KEY: individual_perc}
-
     if not processed_cluster_data:
         num_distinct_clusters = 0
         global_cluster_percentage_sum_str = "0.00"
         individual_cluster_percentages_str = "N/A"
         token_status_eval = "CLEAN"
         status_color_eval = "GREEN"
+        
+        # Initialize DEX and rank data structures
+        dex_data = []
+        rank_data = []
     else:
         num_distinct_clusters = len(processed_cluster_data)
         global_sum_float = 0.0
         valid_percentages_list = []
+        dex_data = []
+        rank_data = []
 
-        for cluster_key, perc_str_val in processed_cluster_data.items():
+        for cluster_key, entry in processed_cluster_data.items():
             try:
+                # Handle DEX supply entries
+                if isinstance(entry, dict) and entry.get('Address_Type') == 'DEX_SUPPLY':
+                    dex_info = {
+                        'address': entry.get('DEX_Address', 'Unknown'),
+                        'percentage': entry.get('DEX_Percentage', '0%')
+                    }
+                    dex_data.append(dex_info)
+                    continue
+                    
+                # Handle individual clusters (including rank data)
+                if isinstance(entry, dict) and entry.get('Address_Type') == 'INDIVIDUAL_CLUSTER':
+                    rank_info = {
+                        'rank': entry.get('Cluster_Rank', 'N/A'),
+                        'address': entry.get('Cluster_Address', 'N/A'),
+                        'percentage': entry.get('Cluster_Percentage', '0%')
+                    }
+                    rank_data.append(rank_info)
+                
+                # Extract percentage for global sum
+                perc_str_val = entry
+                if isinstance(entry, dict) and 'Cluster_Supply_Percentage' in entry:
+                    perc_str_val = entry['Cluster_Supply_Percentage']
+                
                 if isinstance(perc_str_val, str) and not any(err_indicator in perc_str_val for err_indicator in ["N/A", "Error", "Pending", "Found"]):
-                    current_perc_float = float(perc_str_val)
-                    global_sum_float += current_perc_float
-                    # For "Individual_Cluster_Percentages", show the type of cluster
-                    if cluster_key == RANK1_AS_CLUSTER_KEY:
-                        valid_percentages_list.append(f"Rank#1_Direct:{current_perc_float:.2f}%")
-                    else: # It's a visual cluster based on MuiBox class
-                        valid_percentages_list.append(f"VisualCluster:{current_perc_float:.2f}%")
-            except ValueError:
-                logging.warning(f"[{threading.get_ident()}] ValueError converting cluster supply '{perc_str_val}' for {token_address}, key '{cluster_key}'.")
+                    try:
+                        current_perc_float = float(perc_str_val.rstrip('%'))
+                        global_sum_float += current_perc_float
+                        
+                        # For "Individual_Cluster_Percentages", show the type of cluster
+                        if isinstance(entry, dict) and entry.get('Address_Type') == 'LINKED_CLUSTER':
+                            addr = entry.get('Address', 'Unknown')
+                            valid_percentages_list.append(f"{addr}: {current_perc_float:.2f}%")
+                    except ValueError:
+                        logging.warning(f"[{threading.get_ident()}] ValueError converting cluster supply '{perc_str_val}' for {token_address}, key '{cluster_key}'.")
+                        
+            except Exception as e:
+                logging.warning(f"[{threading.get_ident()}] Error processing cluster data: {str(e)}")
 
-        global_cluster_percentage_sum_str = f"{global_sum_float:.2f}"
-        individual_cluster_percentages_str = "; ".join(valid_percentages_list) if valid_percentages_list else "None Valid"
+        # Format the global and individual percentages
+        global_cluster_percentage_sum_str = f"{global_sum_float:.2f}%"
+        
+        # Add DEX info to the percentages string
+        for dex in dex_data:
+            valid_percentages_list.append(f"DEX({dex['address']}): {dex['percentage']}")
+            
+        # Add rank info to the percentages string
+        for rank_info in rank_data:
+            valid_percentages_list.append(f"Rank#{rank_info['rank']}: {rank_info['percentage']}")
+            
+        individual_cluster_percentages_str = " | ".join(valid_percentages_list) if valid_percentages_list else "No valid percentages"
 
+        # Determine token status based on cluster percentages
         if global_sum_float == 0 and not valid_percentages_list:
-             token_status_eval = "NO_VALID_CLUSTER_DATA"
-             status_color_eval = "GREY"
+            token_status_eval = "NO_VALID_CLUSTER_DATA"
+            status_color_eval = "GREY"
         elif global_sum_float < 5.0: # Threshold for OPPORTUNITY
             token_status_eval = "OPPORTUNITY"
             status_color_eval = "ORANGE"
@@ -499,38 +658,201 @@ def save_cluster_summary_data(token_address: str, processed_cluster_data: dict):
     try:
         with open(summary_filepath, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            if file_needs_header:
-                writer.writerow([
-                    'Token_Address','Num_Unique_Clusters','Global_Cluster_Percentage',
-                    'Individual_Cluster_Percentages','Status','Status_Color'
-                ])
-                logging.info(f"Created new cluster summary file with headers at {summary_filepath}")
-            row = [
-                token_address, num_distinct_clusters, global_cluster_percentage_sum_str,
-                individual_cluster_percentages_str, token_status_eval, status_color_eval
+            csv_columns = [
+                'Token_Address', 'Rank', 'Address', 'Balance', 'Percentage',
+                'Address_Type', 'Cluster_Supply_Percentage', 'DEX_Address', 'DEX_Percentage',
+                'Cluster_Address', 'Cluster_Percentage', 'Cluster_Rank', 'Cluster_Error',
+                'Status', 'Status_Color', 'Num_Unique_Clusters', 'Global_Cluster_Percentage',
+                'Individual_Cluster_Percentages'
             ]
-            writer.writerow(row)
+            
+            if file_needs_header:
+                writer.writerow(csv_columns)
+                logging.info(f"Created new cluster summary file with headers at {summary_filepath}")
+            
+            # First, write all individual entries
+            for entry in processed_cluster_data:
+                row = [
+                    token_address, 
+                    entry.get('Rank', '?'), 
+                    entry.get('Address', '?'), 
+                    entry.get('Balance', '?'), 
+                    entry.get('Percentage', '?'),
+                    entry.get('Address_Type', '?'), 
+                    entry.get('Cluster_Supply_Percentage', '?'), 
+                    entry.get('DEX_Address', '?'), 
+                    entry.get('DEX_Percentage', '?'),
+                    entry.get('Cluster_Address', '?'), 
+                    entry.get('Cluster_Percentage', '?'), 
+                    entry.get('Cluster_Rank', '?'), 
+                    entry.get('Cluster_Error', '?'),
+                    token_status_eval,  # Status
+                    status_color_eval,  # Status Color
+                    num_distinct_clusters,  # Num Unique Clusters
+                    global_cluster_percentage_sum_str,  # Global Cluster Percentage
+                    individual_cluster_percentages_str  # Individual Cluster Percentages
+                ]
+                writer.writerow(row)
+            
+            # Then write a summary row if needed
+            summary_row = [
+                token_address,  # Token Address
+                'SUMMARY',      # Rank
+                '',             # Address
+                '',             # Balance
+                '',             # Percentage
+                'SUMMARY',      # Address Type
+                '',             # Cluster Supply Percentage
+                '',             # DEX Address
+                '',             # DEX Percentage
+                '',             # Cluster Address
+                '',             # Cluster Percentage
+                '',             # Cluster Rank
+                '',             # Cluster Error
+                token_status_eval,  # Status
+                status_color_eval,  # Status Color
+                num_distinct_clusters,  # Num Unique Clusters
+                global_cluster_percentage_sum_str,  # Global Cluster Percentage
+                individual_cluster_percentages_str  # Individual Cluster Percentages
+            ]
+            writer.writerow(summary_row)
+            
             f.flush()
             os.fsync(f.fileno())
-        try:
-            log_to_db('cluster_summaries', {
-                'Token_Address': token_address,
-                'Num_Unique_Clusters': num_distinct_clusters,
-                'Global_Cluster_Percentage': global_cluster_percentage_sum_str,
-                'Individual_Cluster_Percentages': individual_cluster_percentages_str,
-                'Status': token_status_eval,
-                'Status_Color': status_color_eval
-            })
-        except Exception as db_exc:
-            logging.error(f"DB log error: {db_exc}")
-        logging.info(f"Saved cluster summary for {token_address}: Clusters={num_distinct_clusters}, GlobalSupply={global_cluster_percentage_sum_str}%, Status={token_status_eval}")
+            logging.info(f"Appended cluster summary for {token_address} to {summary_filepath}")
+            return True
+    except Exception as e:
+        logging.error(f"Error writing to cluster summary file: {str(e)}")
+        return False
+
+def save_cluster_summary_to_csv(token_address, processed_cluster_data, summary_filepath, file_needs_header):
+    try:
+        # Calculate summary statistics
+        num_distinct_clusters = len(set(entry.get('Cluster_Address', '') for entry in processed_cluster_data if entry.get('Cluster_Address') and entry.get('Cluster_Address') != '?'))
+        
+        # Calculate global cluster percentage sum
+        cluster_percentages = []
+        for entry in processed_cluster_data:
+            if entry.get('Address_Type') == 'LINKED_CLUSTER' and 'Cluster_Supply_Percentage' in entry:
+                try:
+                    percent = float(entry['Cluster_Supply_Percentage'].rstrip('%'))
+                    cluster_percentages.append(percent)
+                except (ValueError, AttributeError):
+                    pass
+        
+        global_cluster_percentage_sum = sum(cluster_percentages)
+        global_cluster_percentage_sum_str = f"{global_cluster_percentage_sum:.2f}%"
+        
+        # Create individual cluster percentages string
+        individual_percentages = []
+        for entry in processed_cluster_data:
+            if entry.get('Address_Type') in ['LINKED_CLUSTER', 'INDIVIDUAL_CLUSTER']:
+                addr = entry.get('Address', entry.get('Cluster_Address', 'Unknown'))
+                percent = entry.get('Percentage', entry.get('Cluster_Percentage', '0%'))
+                individual_percentages.append(f"{addr}: {percent}")
+        
+        individual_cluster_percentages_str = " | ".join(individual_percentages)
+        
+        # Determine status based on cluster percentages
+        if global_cluster_percentage_sum > 90:
+            token_status_eval = "High Risk"
+            status_color_eval = "red"
+        elif global_cluster_percentage_sum > 70:
+            token_status_eval = "Medium Risk"
+            status_color_eval = "orange"
+        else:
+            token_status_eval = "Low Risk"
+            status_color_eval = "green"
+        
+        with open(summary_filepath, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            csv_columns = [
+                'Token_Address', 'Rank', 'Address', 'Balance', 'Percentage',
+                'Address_Type', 'Cluster_Supply_Percentage', 'DEX_Address', 'DEX_Percentage',
+                'Cluster_Address', 'Cluster_Percentage', 'Cluster_Rank', 'Cluster_Error',
+                'Status', 'Status_Color', 'Num_Unique_Clusters', 'Global_Cluster_Percentage',
+                'Individual_Cluster_Percentages', 'Timestamp'
+            ]
+            
+            if file_needs_header:
+                writer.writerow(csv_columns)
+                logging.info(f"Created new cluster summary file with headers at {summary_filepath}")
+            
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Write all individual entries
+            for entry in processed_cluster_data:
+                row = [
+                    token_address, 
+                    entry.get('Rank', '?'), 
+                    entry.get('Address', '?'), 
+                    entry.get('Balance', '?'), 
+                    entry.get('Percentage', '?'),
+                    entry.get('Address_Type', '?'), 
+                    entry.get('Cluster_Supply_Percentage', '?'), 
+                    entry.get('DEX_Address', '?'), 
+                    entry.get('DEX_Percentage', '?'),
+                    entry.get('Cluster_Address', '?'), 
+                    entry.get('Cluster_Percentage', '?'), 
+                    entry.get('Cluster_Rank', '?'), 
+                    entry.get('Cluster_Error', '?'),
+                    token_status_eval,
+                    status_color_eval,
+                    num_distinct_clusters,
+                    global_cluster_percentage_sum_str,
+                    individual_cluster_percentages_str,
+                    current_time
+                ]
+                writer.writerow(row)
+            
+            # Write a summary row
+            summary_row = [
+                token_address,
+                'SUMMARY',
+                '', '', '', 'SUMMARY',
+                '', '', '', '', '', '', '',
+                token_status_eval,
+                status_color_eval,
+                num_distinct_clusters,
+                global_cluster_percentage_sum_str,
+                individual_cluster_percentages_str,
+                current_time
+            ]
+            writer.writerow(summary_row)
+            
+            f.flush()
+            os.fsync(f.fileno())
+            
+            # Log to database if needed
+            try:
+                log_to_db('cluster_summaries', {
+                    'Token_Address': token_address,
+                    'Num_Unique_Clusters': num_distinct_clusters,
+                    'Global_Cluster_Percentage': global_cluster_percentage_sum_str,
+                    'Individual_Cluster_Percentages': individual_cluster_percentages_str,
+                    'Status': token_status_eval,
+                    'Status_Color': status_color_eval,
+                    'Timestamp': current_time
+                })
+            except Exception as db_exc:
+                logging.error(f"DB log error: {db_exc}")
+            
+            logging.info(f"Saved cluster summary for {token_address}: "
+                        f"Clusters={num_distinct_clusters}, "
+                        f"GlobalSupply={global_cluster_percentage_sum_str}, "
+                        f"Status={token_status_eval}")
+            
+            return True
+            
     except IOError as e:
-        logging.error(f"Error saving cluster summary for {token_address}: {e}")
-        logging.error(f"File path: {summary_filepath}")
-        logging.error(f"Directory exists: {os.path.exists(os.path.dirname(summary_filepath))}")
-        logging.error(f"Directory writable: {os.access(os.path.dirname(summary_filepath), os.W_OK)}")
+        logging.error(f"IOError saving cluster summary: {e}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error in save_cluster_summary_to_csv: {str(e)}", exc_info=True)
+        return False
 
 def process_single_token_threaded(token_address_with_config: tuple):
+    # ... (rest of the code remains the same)
     token_address, chrome_binary_path_config, chrome_driver_path_override_config = token_address_with_config
     thread_id_str = f"Thread-{threading.get_ident()}"
     thread_driver = None
@@ -598,7 +920,13 @@ def process_single_token_threaded(token_address_with_config: tuple):
                     except TimeoutException:
                         logging.warning(f"[{thread_id_str}] Refresh icon not found on page (Attempt {attempt + 1}).")
                         if attempt >= 1:  # If this is the 2nd or later attempt and still no refresh icon
-                            logging.error(f"[{thread_id_str}] Refresh icon not found after {attempt + 1} attempts. Skipping token.")
+                            logging.error(f"[{thread_id_str}] Refresh icon not found after {attempt + 1} attempts. Adding to opened_tokens.txt for retry.")
+                            try:
+                                with open('opened_tokens.txt', 'a') as f:
+                                    f.write(f"{token_address}\n")
+                                logging.info(f"[{thread_id_str}] Added token {token_address} to opened_tokens.txt for retry.")
+                            except Exception as e:
+                                logging.error(f"[{thread_id_str}] Failed to add token to opened_tokens.txt: {e}")
                             return token_address, False
                         continue  # Try again on next attempt
                     except Exception as e:
@@ -675,12 +1003,21 @@ def process_single_token_threaded(token_address_with_config: tuple):
                     if attempt < MAX_BUBBLEMAPS_RETRIES - 1: continue
                     else: return token_address, False
 
-                rank_1_found = any(item.get('Rank') == '1' for item in initial_data)
-                if not rank_1_found:
-                    logging.error(f"[{thread_id_str}] CRITICAL: Rank #1 data not found in initial list (Attempt {attempt + 1}).")
-                    if attempt < MAX_BUBBLEMAPS_RETRIES - 1: continue
-                    else: return token_address, False
-                logging.info(f"[{thread_id_str}] Rank #1 found in initial data (Attempt {attempt + 1}).")
+                # Verify we have at least some data (at least 1 rank)
+                if not initial_data:
+                    logging.error(f"[{thread_id_str}] CRITICAL: No rank data found in initial list (Attempt {attempt + 1}).")
+                    if attempt < MAX_BUBBLEMAPS_RETRIES - 1: 
+                        continue
+                    else: 
+                        return token_address, False
+                        
+                # Log which ranks we found
+                found_ranks = [item.get('Rank', '?') for item in initial_data]
+                logging.info(f"[{thread_id_str}] Found ranks: {found_ranks} (Attempt {attempt + 1})")
+                
+                # If we have less than 10 items, that's fine - we'll just process what we have
+                if len(initial_data) < 10:
+                    logging.warning(f"[{thread_id_str}] Only found {len(initial_data)} ranks, which is less than 10 (Attempt {attempt + 1})")
 
                 # 4. Cluster Data Extraction (Presence of clusters is optional, but function should not error)
                 logging.info(f"[{thread_id_str}] Attempting to click clusters and extract supply data (Attempt {attempt + 1}).")

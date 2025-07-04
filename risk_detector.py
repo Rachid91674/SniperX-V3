@@ -178,21 +178,37 @@ def save_processed_tokens(filepath, token_addresses):
         logging.error(f"Error writing processed tokens to {filepath}: {e}")
 
 def load_cluster_summaries(path):
+    """Load summary rows keyed by token address from cluster_summaries.csv."""
     if not os.path.exists(path):
         logging.error(f"Cluster summary file not found at {path}")
         return {}
-    summaries = {}
+
+    summaries: dict[str, dict] = {}
     try:
-        with open(path, 'r', encoding='utf-8-sig') as f: 
+        with open(path, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if 'Token_Address' in row:
-                    summaries[row['Token_Address']] = row
-                else:
-                    logging.warning(f"Skipping row in cluster summary due to missing 'Token_Address': {row}")
-            logging.info(f"Successfully loaded {len(summaries)} entries from {path}")
+                token_addr = row.get("Token_Address")
+                if not token_addr:
+                    logging.warning(
+                        f"Skipping row in cluster summary due to missing 'Token_Address': {row}"
+                    )
+                    continue
+
+                rank_val = (row.get("Rank", "").strip() or "").upper()
+                addr_type = (row.get("Address_Type", "").strip() or "").upper()
+
+                # Keep only the summary row for each token to avoid overwriting
+                if rank_val == "SUMMARY" or addr_type == "SUMMARY":
+                    summaries[token_addr] = row
+
+            logging.info(
+                f"Successfully loaded {len(summaries)} summary entries from {path}"
+            )
     except Exception as e:
-        logging.error(f"Error loading cluster summaries from {path}: {e}", exc_info=True)
+        logging.error(
+            f"Error loading cluster summaries from {path}: {e}", exc_info=True
+        )
     return summaries
 
 def run_full_risk_analysis():

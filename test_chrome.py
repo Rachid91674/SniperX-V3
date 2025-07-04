@@ -36,6 +36,8 @@ CSV_FILE = 'sniperx_results_1m.csv'
 OPENED_TOKENS_FILE = 'opened_tokens.txt'
 EXTRACTED_DATA_DIR = 'bubblemaps_token_data'
 CLUSTER_SUMMARY_FILE = 'cluster_summaries.csv'
+CSV_CURSOR_FILE = 'sniperx_csv_cursor.txt'
+BMAP_SCREENSHOT_DIR = 'bubblemaps_screens'
 
 # XPATH used to detect the presence of a cluster icon inside an address row.
 # If an element matching this XPATH exists within the MuiBox container then the
@@ -57,6 +59,7 @@ MAX_BUBBLEMAPS_RETRIES = 3
 
 PROCESSED_TOKENS_LOCK = threading.Lock()
 CLUSTER_SUMMARY_LOCK = threading.Lock()
+CSV_CURSOR_LOCK = threading.Lock()
 
 def setup_logging():
     logging.basicConfig(
@@ -106,52 +109,69 @@ def save_processed_token_threadsafe(filepath: str, token_address: str):
     except Exception as e:
         logging.error(f"Error saving processed token {token_address} to {filepath}: {e}")
 
+def load_csv_cursor(filepath: str) -> int:
+    with CSV_CURSOR_LOCK:
+        if not os.path.exists(filepath):
+            return 0
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                val = f.read().strip()
+                return int(val) if val else 0
+        except Exception as e:
+            logging.error(f"Error reading CSV cursor from {filepath}: {e}")
+            return 0
+
+def save_csv_cursor(filepath: str, position: int):
+    with CSV_CURSOR_LOCK:
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(str(position))
+        except Exception as e:
+            logging.error(f"Error saving CSV cursor to {filepath}: {e}")
+
 def get_new_tokens_from_csv_threadsafe(csv_filepath: str, current_processed_tokens: set) -> list:
-    new_tokens = []
+    new_tokens: list[str] = []
     if not os.path.exists(csv_filepath):
         logging.warning(f"Monitored CSV file {csv_filepath} not found.")
         return new_tokens
-    
+
     try:
-        with open(csv_filepath, mode='r', newline='', encoding='utf-8') as f:
-            # Read all lines to get the latest content
+        with open(csv_filepath, "r", newline="", encoding="utf-8") as f:
             lines = f.readlines()
-            if not lines:
-                return new_tokens
 
-            # Skip header if present
-            start_idx = 1 if lines[0].strip().lower().startswith('address') else 0
-            processed_lines = set()
+        if not lines:
+            return new_tokens
 
-            # Process lines in reverse order to get the most recent entries first
-            for line in reversed(lines[start_idx:]):
-                line = line.strip()
-                if not line:  # Skip empty lines
-                    continue
+        header_offset = 1 if lines[0].strip().lower().startswith("address") else 0
+        total_lines = len(lines)
 
-                # Extract token address - handle both CSV and plain text formats
-                if ',' in line:
-                    token_address = line.split(',')[0].strip()
-                else:
-                    token_address = line.strip()
+        cursor = load_csv_cursor(CSV_CURSOR_FILE)
+        if cursor < header_offset or cursor > total_lines:
+            cursor = header_offset
 
-                # Skip if we've already processed this token in this batch
-                if token_address in processed_lines:
-                    continue
-                    
-                processed_lines.add(token_address)
+        processed_in_batch = set()
+        for idx in range(cursor, total_lines):
+            line = lines[idx].strip()
+            if not line:
+                continue
 
-                if token_address and token_address not in current_processed_tokens:
-                    new_tokens.append(token_address)
-                    logging.info(f"Found new token to process: {token_address}")
-                    
-                    # Limit the number of new tokens to process in one batch
-                    if len(new_tokens) >= 10:  # Process max 10 new tokens at a time
-                        break
+            token_address = line.split(',')[0].strip() if ',' in line else line
 
+            if token_address in processed_in_batch:
+                continue
+            processed_in_batch.add(token_address)
+
+            if token_address and token_address not in current_processed_tokens:
+                new_tokens.append(token_address)
+                logging.info(f"Found new token to process: {token_address}")
+                cursor = idx + 1
+                if len(new_tokens) >= 10:
+                    break
+
+        save_csv_cursor(CSV_CURSOR_FILE, cursor)
     except Exception as e:
         logging.error(f"Error reading CSV file {csv_filepath}: {e}", exc_info=True)
-    
+
     logging.info(f"Found {len(new_tokens)} new tokens to process")
     return new_tokens
 
@@ -190,6 +210,18 @@ def click_element_with_fallback(driver, element, timeout: int = 10, max_attempts
         time.sleep(0.5)
     logging.error(f"{log_prefix} Failed to click element after {max_attempts} attempts.")
     return False
+
+def capture_screenshot(driver, token_addr: str, context: str) -> None:
+    """Save a screenshot for debugging when a step fails."""
+    os.makedirs(BMAP_SCREENSHOT_DIR, exist_ok=True)
+    ts = int(time.time())
+    fname = f"{token_addr}_{context}_{ts}.png"
+    path = os.path.join(BMAP_SCREENSHOT_DIR, fname)
+    try:
+        driver.save_screenshot(path)
+        logging.info(f"[{threading.get_ident()}] Screenshot saved to {path}")
+    except Exception as e:
+        logging.error(f"[{threading.get_ident()}] Failed to save screenshot {path}: {e}")
 
 def ensure_address_list_panel_open(driver):
     """Ensure the Address List panel is expanded."""
@@ -993,8 +1025,11 @@ def process_single_token_threaded(token_address_with_config: tuple):
 
                 if not data_is_fresh:
                     logging.error(f"[{thread_id_str}] CRITICAL: Data not fresh after all checks and refreshes on attempt {attempt + 1}.")
-                    if attempt < MAX_BUBBLEMAPS_RETRIES - 1: continue
-                    else: return token_address, False
+                    capture_screenshot(thread_driver, token_address, "stale_data")
+                    if attempt < MAX_BUBBLEMAPS_RETRIES - 1:
+                        continue
+                    else:
+                        return token_address, False
 
                 # 3. Initial Data Extraction & Rank 01 Check
                 initial_data = extract_initial_address_list_data(thread_driver)

@@ -1,0 +1,10 @@
+Rank	Address	Individual_Percentage	MuiBox_Class	Cluster_Supply_Percentage
+1	PumpSwap (BLUESKY-SOL)	15.69	MuiBox-root css-141d73e	15.69
+2	GUnn8m...BFns	3.44	MuiBox-root css-141d73e	0
+3	2F27xV...Mvs9	2.43	MuiBox-root css-141d73e	0
+4	6r261a...K9g1	2.28	MuiBox-root css-141d73e	0
+5	ydn.sol	1.90	MuiBox-root css-141d73e	0
+6	solkcrow.sol	1.81	MuiBox-root css-141d73e	0
+7	Af8Zu4...N4bE	1.38	MuiBox-root css-141d73e	0
+8	FbfopR...zYgc	1.33	MuiBox-root css-141d73e	0
+9	qP3Q8d...8rWU	1.25	MuiBox-root css-141d73e	0

@@ -1,0 +1,19 @@
+2025-06-24 00:30:48,041 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-06-24 00:30:48,047 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-06-24 00:30:48,048 - httpx - DEBUG - load_verify_locations cafile='c:\\Users\\Rachid Aitali\\OneDrive - 4JM Solutions Limited\\Desktop\\SniperX\\SniperX\\.venv\\lib\\site-packages\\certifi\\cacert.pem'
+2025-06-24 00:30:48,062 - httpx - DEBUG - load_ssl_context verify=True cert=None trust_env=True http2=False
+2025-06-24 00:30:48,066 - httpx - DEBUG - load_verify_locations cafile='c:\\Users\\Rachid Aitali\\OneDrive - 4JM Solutions Limited\\Desktop\\SniperX\\SniperX\\.venv\\lib\\site-packages\\certifi\\cacert.pem'
+2025-06-24 00:30:48,085 - __main__ - INFO - Telegram Manager Bot started. Send /menu to interact.
+2025-06-24 00:30:48,086 - telegram.ext.ExtBot - DEBUG - Entering: send_message
+2025-06-24 00:30:48,108 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
+2025-06-24 00:30:48,222 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002B19305ABC0>
+2025-06-24 00:30:48,223 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x000002B192FB5AC0> server_hostname='api.telegram.org' timeout=5.0
+2025-06-24 00:30:53,236 - httpcore.connection - DEBUG - start_tls.failed exception=ConnectTimeout(TimeoutError())
+2025-06-24 00:30:53,238 - __main__ - ERROR - Could not send startup message to TELEGRAM_CHAT_ID 7049055170: Timed out
+2025-06-24 00:30:53,240 - telegram.ext.ExtBot - DEBUG - Entering: get_me
+2025-06-24 00:30:53,242 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
+2025-06-24 00:30:53,327 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x000002B1930B0790>
+2025-06-24 00:30:53,327 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x000002B192FB5AC0> server_hostname='api.telegram.org' timeout=5.0
+2025-06-24 00:30:58,335 - httpcore.connection - DEBUG - start_tls.failed exception=ConnectTimeout(TimeoutError())
+2025-06-24 00:30:58,336 - telegram.ext.Application - DEBUG - This Application is already shut down. Returning.
+2025-06-24 00:30:58,340 - __main__ - ERROR - Error in polling: Timed out

@@ -1,0 +1,70 @@
+2025-06-25 00:03:38,965 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-06-25 00:03:39,064 - telegram.ext.ExtBot - DEBUG - Set Bot API URL: https://api.telegram.org/botyour_actual_telegram_bot_token_here
+2025-06-25 00:03:39,064 - telegram.ext.ExtBot - DEBUG - Set Bot API File URL: https://api.telegram.org/file/botyour_actual_telegram_bot_token_here
+2025-06-25 00:03:39,068 - __main__ - INFO - Telegram Manager Bot started. Send /menu to interact.
+2025-06-25 00:03:39,068 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `sendMessage` with parameters `{'chat_id': 'your_actual_telegram_chat_id_here', 'text': 'SniperX Control Bot is online! Send /menu to see options.'}`
+2025-06-25 00:03:39,078 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
+2025-06-25 00:03:39,283 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x0000026AAFA96A70>
+2025-06-25 00:03:39,283 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x0000026AAFA44FC0> server_hostname='api.telegram.org' timeout=5.0
+2025-06-25 00:03:39,390 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x0000026AAFA3F3A0>
+2025-06-25 00:03:39,392 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-25 00:03:39,394 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-25 00:03:39,394 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-25 00:03:39,394 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-25 00:03:39,396 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-25 00:03:39,459 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 404, b'Not Found', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 24 Jun 2025 23:03:39 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'55'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-06-25 00:03:39,465 - httpx - INFO - HTTP Request: POST https://api.telegram.org/botyour_actual_telegram_bot_token_here/sendMessage "HTTP/1.1 404 Not Found"
+2025-06-25 00:03:39,465 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-25 00:03:39,465 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-25 00:03:39,467 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-25 00:03:39,467 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-25 00:03:39,470 - __main__ - ERROR - Could not send startup message to TELEGRAM_CHAT_ID your_actual_telegram_chat_id_here: Not Found
+2025-06-25 00:03:39,471 - telegram.ext - DEBUG - Network Retry Loop (Bootstrap Initialize Application): Starting
+2025-06-25 00:03:39,472 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `getMe` with parameters `{}`
+2025-06-25 00:03:39,474 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-25 00:03:39,474 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-25 00:03:39,474 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-25 00:03:39,474 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-25 00:03:39,474 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-25 00:03:39,560 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 404, b'Not Found', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 24 Jun 2025 23:03:39 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'55'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-06-25 00:03:39,562 - httpx - INFO - HTTP Request: POST https://api.telegram.org/botyour_actual_telegram_bot_token_here/getMe "HTTP/1.1 404 Not Found"
+2025-06-25 00:03:39,564 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-25 00:03:39,565 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-25 00:03:39,565 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-25 00:03:39,565 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-25 00:03:39,567 - telegram.ext - ERROR - Network Retry Loop (Bootstrap Initialize Application): Invalid token. Aborting retry loop.
+Traceback (most recent call last):
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 844, in initialize
+    await self.get_me()
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_extbot.py", line 1980, in get_me
+    return await super().get_me(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 975, in get_me
+    result = await self._post(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 697, in _post
+    return await self._do_post(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_extbot.py", line 369, in _do_post
+    return await super()._do_post(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 726, in _do_post
+    result = await request.post(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\request\_baserequest.py", line 197, in post
+    result = await self._request_wrapper(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\request\_baserequest.py", line 351, in _request_wrapper
+    raise InvalidToken(message)
+telegram.error.InvalidToken: Not Found
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_utils\networkloop.py", line 115, in network_retry_loop
+    if not await do_action():
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_utils\networkloop.py", line 93, in do_action
+    return await action_cb()
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_application.py", line 486, in initialize
+    await self.bot.initialize()
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_extbot.py", line 315, in initialize
+    await super().initialize()
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 846, in initialize
+    raise InvalidToken(f"The token `{self._token}` was rejected by the server.") from exc
+telegram.error.InvalidToken: The token `your_actual_telegram_bot_token_here` was rejected by the server.
+2025-06-25 00:03:39,577 - telegram.ext.Application - DEBUG - This Application is already shut down. Returning.
+2025-06-25 00:03:39,577 - __main__ - ERROR - Error in polling: The token `your_actual_telegram_bot_token_here` was rejected by the server.

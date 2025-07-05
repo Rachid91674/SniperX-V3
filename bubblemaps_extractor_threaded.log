@@ -1,0 +1,75 @@
+2025-07-05 19:03:03 [INFO] [MainThread] test_chrome:913 - --- Starting Bubblemaps Extractor (Multi-Threaded) ---
+2025-07-05 19:03:03 [INFO] [MainThread] test_chrome:82 - Chrome binary found at: C:\Program Files\Google\Chrome\Application\chrome.exe
+2025-07-05 19:03:03 [INFO] [MainThread] test_chrome:141 - Found new token to process: GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump
+2025-07-05 19:03:03 [INFO] [MainThread] test_chrome:141 - Found new token to process: Fk3r3yyk2by2LmL9H4WvbaY7kHAKsDgQQsEs5dn8pump
+2025-07-05 19:03:03 [INFO] [MainThread] test_chrome:141 - Found new token to process: w41H44tcN5yysKEfptjsopUP6gs8FPspn9Rsnj5pump
+2025-07-05 19:03:03 [INFO] [MainThread] test_chrome:150 - Found 3 new tokens to process
+2025-07-05 19:03:03 [INFO] [MainThread] test_chrome:893 - Submitting 1 new tokens: GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump
+2025-07-05 19:03:03 [INFO] [MainThread] test_chrome:903 - Pool full (1). Waiting...
+2025-07-05 19:03:03 [INFO] [BubbleWorker_0] test_chrome:500 - [Thread-45624] --- Starting processing for token: GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump ---
+2025-07-05 19:03:05 [INFO] [BubbleWorker_0] test_chrome:510 - [Thread-45624] Attempt 1/3 for token: GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump
+2025-07-05 19:03:08 [INFO] [BubbleWorker_0] test_chrome:521 - [Thread-45624] Page readyState complete for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump (Attempt 1).
+2025-07-05 19:03:09 [INFO] [BubbleWorker_0] test_chrome:529 - [Thread-45624] Initial 'Address List' is visible for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump (Attempt 1).
+2025-07-05 19:03:12 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-45624] Timestamp: 'a few seconds ago' (Attempt 1).
+2025-07-05 19:03:12 [INFO] [BubbleWorker_0] test_chrome:544 - [Thread-45624] Data is fresh (Attempt 1).
+2025-07-05 19:03:12 [INFO] [BubbleWorker_0] test_chrome:630 - [Thread-45624] 'Show Contract' not checked. Clicking (Attempt 1).
+2025-07-05 19:03:13 [INFO] [MainThread] test_chrome:903 - Pool full (1). Waiting...
+2025-07-05 19:03:16 [WARNING] [BubbleWorker_0] test_chrome:641 - [Thread-45624] 'Show Contract' click attempted but not selected (Attempt 1).
+2025-07-05 19:03:16 [ERROR] [BubbleWorker_0] test_chrome:649 - [Thread-45624] CRITICAL: 'Show Contract' interaction failed on attempt 1.
+2025-07-05 19:03:16 [INFO] [BubbleWorker_0] test_chrome:510 - [Thread-45624] Attempt 2/3 for token: GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump
+2025-07-05 19:03:16 [INFO] [BubbleWorker_0] test_chrome:515 - [Thread-45624] Reloading page for attempt 2.
+2025-07-05 19:03:18 [INFO] [BubbleWorker_0] test_chrome:521 - [Thread-45624] Page readyState complete for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump (Attempt 2).
+2025-07-05 19:03:20 [INFO] [BubbleWorker_0] test_chrome:529 - [Thread-45624] Initial 'Address List' is visible for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump (Attempt 2).
+2025-07-05 19:03:22 [INFO] [BubbleWorker_0] test_chrome:541 - [Thread-45624] Timestamp: 'a few seconds ago' (Attempt 2).
+2025-07-05 19:03:22 [INFO] [BubbleWorker_0] test_chrome:544 - [Thread-45624] Data is fresh (Attempt 2).
+2025-07-05 19:03:22 [INFO] [BubbleWorker_0] test_chrome:630 - [Thread-45624] 'Show Contract' not checked. Clicking (Attempt 2).
+2025-07-05 19:03:23 [INFO] [MainThread] test_chrome:903 - Pool full (1). Waiting...
+2025-07-05 19:03:25 [INFO] [BubbleWorker_0] test_chrome:639 - [Thread-45624] 'Show Contract' successfully checked (Attempt 2).
+2025-07-05 19:03:33 [INFO] [MainThread] test_chrome:903 - Pool full (1). Waiting...
+2025-07-05 19:03:40 [INFO] [BubbleWorker_0] test_chrome:665 - [Thread-45624] Rank #1 found in initial data (Attempt 2).
+2025-07-05 19:03:40 [INFO] [BubbleWorker_0] test_chrome:668 - [Thread-45624] Attempting to click clusters and extract supply data (Attempt 2).
+2025-07-05 19:03:40 [INFO] [BubbleWorker_0] test_chrome:297 - [Thread-45624] Rank #1 (PumpSwap (DODO-SOL)) is visually individual. Treating its own holdings as its cluster data.
+2025-07-05 19:03:40 [INFO] [BubbleWorker_0] test_chrome:677 - [Thread-45624] click_clusters_and_extract_supply_data completed (Attempt 2).
+2025-07-05 19:03:40 [INFO] [BubbleWorker_0] test_chrome:485 - Created new cluster summary file with headers at C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\cluster_summaries.csv
+2025-07-05 19:03:40 [INFO] [BubbleWorker_0] test_chrome:489 - Saved cluster summary for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump: Clusters=1, GlobalSupply=15.23%, Status=RISKY
+2025-07-05 19:03:40 [INFO] [BubbleWorker_0] test_chrome:687 - [Thread-45624] Successfully processed and saved data for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump on attempt 2.
+2025-07-05 19:03:42 [INFO] [BubbleWorker_0] test_chrome:731 - [Thread-45624] WebDriver quit for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump.
+2025-07-05 19:03:43 [INFO] [MainThread] test_chrome:853 - Bubblemaps SUCCESS for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump.
+2025-07-05 19:03:43 [INFO] [MainThread] test_chrome:861 - 1 tokens updated. Triggering risk_detector.py.
+2025-07-05 19:03:43 [INFO] [MainThread] test_chrome:736 - Attempting to run risk_detector.py...
+2025-07-05 19:03:47 [INFO] [MainThread] test_chrome:757 - risk_detector.py completed successfully.
+2025-07-05 19:03:47 [WARNING] [MainThread] test_chrome:759 - Risk Detector STDERR:
+2025-07-05 19:03:44 [INFO] [risk_detector.py:176] - --- Starting Full Token Risk Analysis ---
+2025-07-05 19:03:44 [INFO] [risk_detector.py:190] - Loaded 3 tokens from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv
+2025-07-05 19:03:44 [INFO] [risk_detector.py:170] - Successfully loaded 1 entries from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\cluster_summaries.csv
+2025-07-05 19:03:44 [INFO] [risk_detector.py:223] - Processing token: w41H44tcN5yysKEfptjsopUP6gs8FPspn9Rsnj5pump (guy sleeping wif cat)
+2025-07-05 19:03:44 [INFO] [risk_detector.py:246] - No cluster summary found for w41H44tcN5yysKEfptjsopUP6gs8FPspn9Rsnj5pump.
+2025-07-05 19:03:44 [INFO] [risk_detector.py:32] - [DEXSCREENER] Querying for pairs: https://api.dexscreener.com/latest/dex/search?q=w41H44tcN5yysKEfptjsopUP6gs8FPspn9Rsnj5pump
+2025-07-05 19:03:45 [INFO] [risk_detector.py:116] - [DEXSCREENER] Primary pair for w41H44tcN5yysKEfptjsopUP6gs8FPspn9Rsnj5pump: 7KkPdpJspiU4TCNB2FEsso7i95TYhiQkVT1ZF5dMWPj6, Liq_USD: 6353.89, Price_USD: 0.00000371
+2025-07-05 19:03:45 [INFO] [risk_detector.py:223] - Processing token: Fk3r3yyk2by2LmL9H4WvbaY7kHAKsDgQQsEs5dn8pump (Vision Coin)
+2025-07-05 19:03:45 [INFO] [risk_detector.py:246] - No cluster summary found for Fk3r3yyk2by2LmL9H4WvbaY7kHAKsDgQQsEs5dn8pump.
+2025-07-05 19:03:45 [INFO] [risk_detector.py:32] - [DEXSCREENER] Querying for pairs: https://api.dexscreener.com/latest/dex/search?q=Fk3r3yyk2by2LmL9H4WvbaY7kHAKsDgQQsEs5dn8pump
+2025-07-05 19:03:46 [INFO] [risk_detector.py:44] - [DEXSCREENER] No pairs found for Fk3r3yyk2by2LmL9H4WvbaY7kHAKsDgQQsEs5dn8pump.
+2025-07-05 19:03:46 [INFO] [risk_detector.py:223] - Processing token: GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump (Unknown)
+2025-07-05 19:03:46 [INFO] [risk_detector.py:32] - [DEXSCREENER] Querying for pairs: https://api.dexscreener.com/latest/dex/search?q=GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump
+2025-07-05 19:03:46 [INFO] [risk_detector.py:116] - [DEXSCREENER] Primary pair for GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump: FBDMtVFjiDVxB7JdPJpLdc2zeh6binn6cF2zmkouj7HU, Liq_USD: 33299.97, Price_USD: 0.00010710
+2025-07-05 19:03:46 [INFO] [risk_detector.py:319] - Successfully wrote 3 processed token entries to C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\token_risk_analysis.csv and C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\filtered_tokens_with_all_risks.csv
+2025-07-05 19:03:46 [INFO] [risk_detector.py:326] - Removed processed tokens from C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv
+2025-07-05 19:03:46 [INFO] [risk_detector.py:331] - Cleaned up C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\cluster_summaries.csv
+2025-07-05 19:03:46 [INFO] [risk_detector.py:340] - C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\token_risk_analysis.csv contains 4 lines (including header)
+2025-07-05 19:03:46 [INFO] [risk_detector.py:344] - C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\filtered_tokens_with_all_risks.csv contains 4 lines (including header)
+2025-07-05 19:03:46 [INFO] [risk_detector.py:353] - --- Full Token Risk Analysis Finished ---
+2025-07-05 19:03:47 [INFO] [MainThread] test_chrome:764 - Risk detector output file created at C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\filtered_tokens_with_all_risks.csv
+2025-07-05 19:03:47 [INFO] [MainThread] test_chrome:424 - Deleted token data file C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\bubblemaps_token_data\bubblemaps_data_GsEGDRkb54v7mn6t2rE28TC3kmikyFB24DYHm51zpump.txt
+2025-07-05 19:03:47 [INFO] [MainThread] test_chrome:874 - CSV file content changed, checking for new tokens
+2025-07-05 19:03:47 [WARNING] [MainThread] test_chrome:107 - Monitored CSV file C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv not found.
+2025-07-05 19:03:52 [WARNING] [MainThread] test_chrome:107 - Monitored CSV file C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv not found.
+2025-07-05 19:03:52 [INFO] [MainThread] test_chrome:898 - No new tokens, no active tasks. Waiting 15s...
+2025-07-05 19:04:07 [WARNING] [MainThread] test_chrome:107 - Monitored CSV file C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv not found.
+2025-07-05 19:04:07 [INFO] [MainThread] test_chrome:898 - No new tokens, no active tasks. Waiting 15s...
+2025-07-05 19:04:22 [WARNING] [MainThread] test_chrome:107 - Monitored CSV file C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv not found.
+2025-07-05 19:04:22 [INFO] [MainThread] test_chrome:898 - No new tokens, no active tasks. Waiting 15s...
+2025-07-05 19:04:37 [WARNING] [MainThread] test_chrome:107 - Monitored CSV file C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv not found.
+2025-07-05 19:04:37 [INFO] [MainThread] test_chrome:898 - No new tokens, no active tasks. Waiting 15s...
+2025-07-05 19:04:52 [WARNING] [MainThread] test_chrome:107 - Monitored CSV file C:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX\SniperX-V3\sniperx_results_1m.csv not found.
+2025-07-05 19:04:52 [INFO] [MainThread] test_chrome:898 - No new tokens, no active tasks. Waiting 15s...

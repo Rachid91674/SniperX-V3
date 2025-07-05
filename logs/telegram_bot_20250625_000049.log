@@ -1,0 +1,70 @@
+2025-06-25 00:00:49,049 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-06-25 00:00:49,173 - telegram.ext.ExtBot - DEBUG - Set Bot API URL: https://api.telegram.org/bottest_telegram_token
+2025-06-25 00:00:49,173 - telegram.ext.ExtBot - DEBUG - Set Bot API File URL: https://api.telegram.org/file/bottest_telegram_token
+2025-06-25 00:00:49,173 - __main__ - INFO - Telegram Manager Bot started. Send /menu to interact.
+2025-06-25 00:00:49,175 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `sendMessage` with parameters `{'chat_id': 'test_chat_id', 'text': 'SniperX Control Bot is online! Send /menu to see options.'}`
+2025-06-25 00:00:49,186 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
+2025-06-25 00:00:49,378 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x0000015B8EB16A70>
+2025-06-25 00:00:49,380 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x0000015B8EAC4FC0> server_hostname='api.telegram.org' timeout=5.0
+2025-06-25 00:00:49,488 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x0000015B8EABF3A0>
+2025-06-25 00:00:49,490 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-25 00:00:49,492 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-25 00:00:49,493 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-25 00:00:49,494 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-25 00:00:49,494 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-25 00:00:49,573 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 404, b'Not Found', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 24 Jun 2025 23:00:49 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'55'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-06-25 00:00:49,575 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bottest_telegram_token/sendMessage "HTTP/1.1 404 Not Found"
+2025-06-25 00:00:49,575 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-25 00:00:49,576 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-25 00:00:49,576 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-25 00:00:49,576 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-25 00:00:49,577 - __main__ - ERROR - Could not send startup message to TELEGRAM_CHAT_ID test_chat_id: Not Found
+2025-06-25 00:00:49,577 - telegram.ext - DEBUG - Network Retry Loop (Bootstrap Initialize Application): Starting
+2025-06-25 00:00:49,578 - telegram.ext.ExtBot - DEBUG - Calling Bot API endpoint `getMe` with parameters `{}`
+2025-06-25 00:00:49,579 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-25 00:00:49,579 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-25 00:00:49,579 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-25 00:00:49,579 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-25 00:00:49,579 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-25 00:00:49,656 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 404, b'Not Found', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Tue, 24 Jun 2025 23:00:49 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'55'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-06-25 00:00:49,657 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bottest_telegram_token/getMe "HTTP/1.1 404 Not Found"
+2025-06-25 00:00:49,659 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-25 00:00:49,659 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-25 00:00:49,659 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-25 00:00:49,659 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-25 00:00:49,659 - telegram.ext - ERROR - Network Retry Loop (Bootstrap Initialize Application): Invalid token. Aborting retry loop.
+Traceback (most recent call last):
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 844, in initialize
+    await self.get_me()
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_extbot.py", line 1980, in get_me
+    return await super().get_me(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 975, in get_me
+    result = await self._post(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 697, in _post
+    return await self._do_post(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_extbot.py", line 369, in _do_post
+    return await super()._do_post(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 726, in _do_post
+    result = await request.post(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\request\_baserequest.py", line 197, in post
+    result = await self._request_wrapper(
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\request\_baserequest.py", line 351, in _request_wrapper
+    raise InvalidToken(message)
+telegram.error.InvalidToken: Not Found
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_utils\networkloop.py", line 115, in network_retry_loop
+    if not await do_action():
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_utils\networkloop.py", line 93, in do_action
+    return await action_cb()
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_application.py", line 486, in initialize
+    await self.bot.initialize()
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\ext\_extbot.py", line 315, in initialize
+    await super().initialize()
+  File "c:\Users\Rachid Aitali\OneDrive - 4JM Solutions Limited\Desktop\SniperX\SniperX\SniperX-V3\.venv\lib\site-packages\telegram\_bot.py", line 846, in initialize
+    raise InvalidToken(f"The token `{self._token}` was rejected by the server.") from exc
+telegram.error.InvalidToken: The token `test_telegram_token` was rejected by the server.
+2025-06-25 00:00:49,676 - telegram.ext.Application - DEBUG - This Application is already shut down. Returning.
+2025-06-25 00:00:49,676 - __main__ - ERROR - Error in polling: The token `test_telegram_token` was rejected by the server.

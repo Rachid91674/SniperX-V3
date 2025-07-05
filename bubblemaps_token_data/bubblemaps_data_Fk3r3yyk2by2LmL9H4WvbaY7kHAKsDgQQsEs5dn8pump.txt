@@ -1,0 +1,11 @@
+Rank	Address	Individual_Percentage	MuiBox_Class	Cluster_Supply_Percentage
+1	PumpSwap (Vision-SOL)	20.29	MuiBox-root css-141d73e	20.29
+2	795w41...pjRg	3.30	MuiBox-root css-141d73e	0
+3	EmZMN2...KQdE	2.77	MuiBox-root css-141d73e	0
+4	BZRFYA...HC93	2.67	MuiBox-root css-141d73e	0
+5	5BtksV...V7Md	2.46	MuiBox-root css-141d73e	0
+6	Bviprj...KRJK	2.04	MuiBox-root css-141d73e	0
+7	Bp2epC...oUaU	1.91	MuiBox-root css-141d73e	0
+8	9hUPXY...EAcm	1.78	MuiBox-root css-141d73e	0
+9	9VtzsP...BWmU	1.78	MuiBox-root css-141d73e	0
+10	2kjjrv...MTca	1.58	MuiBox-root css-141d73e	0

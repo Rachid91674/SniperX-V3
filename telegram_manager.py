@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
-import logging
+# Set timezone before any other imports
 import os
+os.environ['TZ'] = 'UTC'
+
+import logging
 import subprocess
 import sys
 import signal # For sending signals like SIGINT, SIGSTOP, SIGCONT
@@ -10,9 +13,20 @@ import json
 from decimal import Decimal
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler, Defaults
 import time
+import platform
+
+# Set timezone for Windows
+if platform.system() == 'Windows':
+    import win32timezone  # This will be needed on Windows
+    os.environ['TZ'] = 'UTC'
+    time.tzset = time.tzset if hasattr(time, 'tzset') else lambda: None
+else:
+    time.tzset()  # Applies the TZ environment variable on Unix-like systems
+
 from datetime import datetime
+import pytz
 
 # Try loading .env first, if not found try sniperx_config.env or env.txt
 if os.path.exists('.env'):
@@ -482,6 +496,7 @@ def main_telegram_bot() -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    # Set up the application with minimal configuration
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Command handlers
@@ -542,6 +557,16 @@ def main_telegram_bot() -> None:
 
 if __name__ == "__main__":
     try:
+        # Set timezone for the entire application
+        import pytz
+        import datetime
+        os.environ['TZ'] = 'UTC'
+        if hasattr(time, 'tzset'):
+            time.tzset()
+        
+        # Set timezone for datetime
+        datetime.datetime.now(pytz.UTC)
+        
         main_telegram_bot()
     except KeyboardInterrupt:
         logger.info("Bot stopped by user.")
